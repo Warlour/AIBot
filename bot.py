@@ -15,6 +15,7 @@ import torch
 import clip
 '''Stable-diffusion'''
 from diffusers import StableDiffusionPipeline
+from diffusers import StableDiffusionImg2ImgPipeline
 
 #openai.api_key = os.environ["OPENAI_API_KEY"]
 discord_token = os.environ["DISCORD_TOKEN_BOT1"]
@@ -53,50 +54,18 @@ async def on_message(message):
         await message.channel.purge()
 
     # Models only requiring text
-    if message.content:
-        # Stable-diffusion
-        if message.content.startswith('draw: '):
+    if not message.attachments:
+        if message.content and message.content.startswith('draw:'):
+            # Stable-diffusion
             await message.add_reaction('⏳')
 
-            os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb=512'
             pipe = StableDiffusionPipeline.from_pretrained("stable-diffusion-v1-4", torch_dtype=torch.float16).to(device)
 
             prompt = message.content.replace("draw: ", "")
 
             filename = f"{prompt}.jpg"
             pipe(prompt).images[0].save(filename)
-            # pipe(prompt).images[0].save("image1.jpg")
-            # pipe(prompt).images[1].save("image2.jpg")
-            # pipe(prompt).images[2].save("image3.jpg")
-            
-            # image1 = Image.open("image1.jpg")
-            # image2 = Image.open("image2.jpg")
-            # image3 = Image.open("image3.jpg")
 
-            # # Resize all images to the same size
-            # image1 = image1.resize((200, 200))
-            # image2 = image2.resize((200, 200))
-            # image3 = image3.resize((200, 200))
-
-            # # Create a new blank image for the grid
-            # grid_size = (2, 2)
-            # grid_image = Image.new('RGB', (grid_size[0] * image1.width, grid_size[1] * image1.height))
-
-            # # Paste each image onto the grid
-            # grid_image.paste(image1, (0, 0))
-            # grid_image.paste(image2, (image1.width, 0))
-            # grid_image.paste(image3, (0, image1.height))
-
-            # filename = f"{prompt}_grid.jpg"
-            # grid_image.save(filename)
-
-            # image1.close()
-            # image2.close()
-            # image3.close()
-            # os.remove(f"image1.jpg")
-            # os.remove(f"image2.jpg")
-            # os.remove(f"image3.jpg")
-            
             with open(filename, 'rb') as f:
                 try:
                     file = discord.File(f)
@@ -158,13 +127,14 @@ async def on_message(message):
                         text += "I'm not sure what you want me to do?"
 
                 # CLIP
-                elif attachment.filename.endswith(('.png', '.jpg', '.webp')) and message.content and message.content.startswith('guess: '):
+                elif attachment.filename.endswith(('.png', '.jpg', '.webp')) and message.content and message.content.startswith('guess:'):
                     model_name = "ViT-B/32"
                     model, preprocess = clip.load(model_name, device=device)
                     text = f"Using the {model_name} CLIP model with {sum(np.prod(p.shape) for p in model.parameters()):,} parameters:\n"
 
                     image = preprocess(Image.open(attachment.filename)).unsqueeze(0).to(device)
-                    possibilities = message.content.split(", ")
+                    msg = message.content.replace("guess: ", "", 1)
+                    possibilities = msg.split(", ")
                     textprob = clip.tokenize(possibilities).to(device)
 
                     with torch.no_grad():
@@ -182,16 +152,50 @@ async def on_message(message):
                         text_list.append(f"{possibilities[i]}: {probas[i]}")
                     list_sorted = sorted(text_list, key=lambda x: x.split(": ")[-1][:-1], reverse=True)
                     text = "\n".join(list_sorted)
-                
-                # Point-E
-                # elif
+
+                # Stable-diffusion img2img
+                elif attachment.filename.endswith(('.png', '.jpg', '.webp')) and message.content.startswith('draw:'):
+                    await message.add_reaction('⏳')
+
+                    pipe = StableDiffusionImg2ImgPipeline.from_pretrained("stable-diffusion-v1-4", torch_dtype=torch.float16).to(device)
+                    prompt = message.content.replace("draw:", "")
+                    image_prompt = Image.open(attachment.filename)
+                    filename = f"edited_{attachment.filename}"
+                    pipe(prompt=prompt, image=image_prompt).images[0].save(filename)
+                    
+
+                    with open(filename, 'rb') as f:
+                        try:
+                            file = discord.File(f)
+                        except Exception as e:
+                            print(e)
+                    if is_image(filename):
+                        print("This is an image")
+                        await message.remove_reaction('⏳', client.user)
+                        await message.add_reaction('✅')
+                        await message.channel.send("", file=file)
+                    else:
+                        print("This is not an image")
+                        await message.remove_reaction('⏳', client.user)
+                        await message.add_reaction('❌')
+                    
+                    f.close()
+                    os.remove(filename)
 
                 else:
                     await message.remove_reaction('⏳', client.user)
                     await message.add_reaction('❌')
                     return
+            except RuntimeError as e:
+                if "CUDA out of memory" in str(e):
+                    text = "Out of VRAM, try a different image."
+                    print(text)
+                else:
+                    print(e)
             except Exception as e:
                 print(e)
+                
+
                 os.remove(attachment.filename)
                 await message.remove_reaction('⏳', client.user)
                 await message.add_reaction('❌')
@@ -219,9 +223,5 @@ async def on_message(message):
             except discord.errors.HTTPException:
                 await message.channel.send("Reached character limit of 2000.")
                 await message.add_reaction('⚠️')
-                
-                
-
-
 
 client.run(discord_token)
