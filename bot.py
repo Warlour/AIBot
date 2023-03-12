@@ -2,24 +2,33 @@ import os
 import discord
 import requests
 
-#import openai
-import whisper
-
-import torch
-import clip
+# Processing
 from PIL import Image
 import numpy as np
 import textwrap
+
+# Models and related
+import whisper
+import torch
+import clip
 
 #openai.api_key = os.environ["OPENAI_API_KEY"]
 discord_token = os.environ["DISCORD_TOKEN_BOT1"]
 
 intents = discord.Intents.default()
-#intents.members = True
 intents.message_content = True
 client = discord.Client(intents=intents)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
+
+def text_between(string, start, end):
+    start_index = string.find(start)
+    if start_index != -1:
+        start_index += len(start)
+        end_index = string.find(end, start_index)
+        if end_index == -1:
+            end_index = len(string)
+        return string[start_index:end_index]
 
 @client.event
 async def on_ready():
@@ -49,25 +58,17 @@ async def on_message(message):
                     model_name = "medium"
                     model_parameters = "1550 M"
                     model = whisper.load_model(model_name, device=device)
-                    print(
-                        f"Model is {'multilingual' if model.is_multilingual else 'English-only'} "
-                        f"and has {sum(np.prod(p.shape) for p in model.parameters()):,} parameters."
-                    )
+                    # print(
+                    #     f"Model is {'multilingual' if model.is_multilingual else 'English-only'} "
+                    #     f"and has {sum(np.prod(p.shape) for p in model.parameters()):,} parameters."
+                    # )
 
                     text = ""
-
-                    
                     if 'transcribe' in message.content:
                         prompt = ""
                         if 'transcribe: ' in message.content:
-                            start_index = message.content.find("transcribe: ")
-                            if start_index != -1:
-                                start_index += len("transcribe: ")
-                                end_index = message.content.find(" detect", start_index)
-                                if end_index == -1:
-                                    end_index = len(message.content)
-                                extracted_text = message.content[start_index:end_index]
-                                prompt = extracted_text
+                            prompt = text_between(message.content, "transcribe: ", " detect")
+                            print(prompt)
                         result = model.transcribe(attachment.filename, initial_prompt=prompt)
                         text += f'Transcribed {attachment.filename} using the {model_name} model of {model_parameters} parameters: `{result["text"].strip()}`\n\n'
 
@@ -105,7 +106,6 @@ async def on_message(message):
                         text_list.append(f"{possibilities[i]}: {probas[i]}")
                     list_sorted = sorted(text_list, key=lambda x: x.split(": ")[-1][:-1], reverse=True)
                     text = "\n".join(list_sorted)
-                    print(text)
                 else:
                     await message.remove_reaction('⏳', client.user)
                     await message.add_reaction('❌')
