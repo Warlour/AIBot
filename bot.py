@@ -6,6 +6,7 @@ import requests
 from PIL import Image
 import numpy as np
 import textwrap
+import re
 
 # Models and related
 '''Whisper'''
@@ -55,39 +56,60 @@ async def on_message(message):
 
     # Models only requiring text
     if not message.attachments:
-        if message.content and message.content.startswith('draw:'):
-            # Stable-diffusion
+        pattern = r"\d+(?=\s*.draw:)"
+        match = re.search(pattern, message.content)
+        try:
+            x = match.group(0)
+        except AttributeError as e:
+            x = 1
+
+        if int(x) < 1:
+            return
+        
+        # Stable-diffusion
+        if message.content and (message.content.startswith(f'{x}.draw:') or message.content.startswith('draw:')):
             await message.add_reaction('⏳')
 
-            pipe = StableDiffusionPipeline.from_pretrained("stable-diffusion-v1-4", torch_dtype=torch.float16).to(device)
+            prompt = message.content.replace("draw: ", "").split('draw:')[-1]
+            replied = False
+            try:
+                for _ in range(int(x)):
+                    print("Image nr: " + str(_))
+                    try:
+                        pipe = StableDiffusionPipeline.from_pretrained("stable-diffusion-v1-4", torch_dtype=torch.float16).to(device)
 
-            prompt = message.content.replace("draw: ", "")
+                        filename = f"{_}{prompt}.png"
+                        pipe(prompt.strip()).images[0].save(filename)
 
-            filename = f"{prompt}.jpg"
-            pipe(prompt).images[0].save(filename)
+                        with open(filename, 'rb') as f:
+                            file = discord.File(f)
+                    
+                        if is_image(filename):
+                            if not replied:
+                                replied = True
+                                await message.channel.send(prompt)
+                            
+                            await message.channel.send(f"Image {_ + 1} of {int(x)}", file=file)
 
-            with open(filename, 'rb') as f:
-                try:
-                    file = discord.File(f)
-                except Exception as e:
-                    print(e)
-            if is_image(filename):
-                print("This is an image")
-                await message.remove_reaction('⏳', client.user)
-                await message.add_reaction('✅')
-                await message.channel.send(prompt, file=file)
-            else:
-                print("This is not an image")
+                            if _ == int(x)-1:
+                                await message.remove_reaction('⏳', client.user)
+                                await message.add_reaction('✅')
+                        
+                    except Exception as e:
+                        print(e)
+                    f.close()
+                    os.remove(filename)
+            except Exception as e:
                 await message.remove_reaction('⏳', client.user)
                 await message.add_reaction('❌')
-            
-            f.close()
-            os.remove(filename)
+                    
+
 
     # Models requiring files as input
     elif message.attachments:
         print(message.content)
         for attachment in message.attachments:
+            bad = False
             # Download and write file as binary
             r = requests.get(attachment.url)
             with open(attachment.filename, 'wb') as f:
@@ -162,20 +184,16 @@ async def on_message(message):
                     image_prompt = Image.open(attachment.filename)
                     filename = f"edited_{attachment.filename}"
                     pipe(prompt=prompt, image=image_prompt).images[0].save(filename)
-                    
 
                     with open(filename, 'rb') as f:
-                        try:
-                            file = discord.File(f)
-                        except Exception as e:
-                            print(e)
+                        file = discord.File(f)
+
                     if is_image(filename):
-                        print("This is an image")
                         await message.remove_reaction('⏳', client.user)
                         await message.add_reaction('✅')
                         await message.channel.send("", file=file)
+
                     else:
-                        print("This is not an image")
                         await message.remove_reaction('⏳', client.user)
                         await message.add_reaction('❌')
                     
@@ -186,16 +204,19 @@ async def on_message(message):
                     await message.remove_reaction('⏳', client.user)
                     await message.add_reaction('❌')
                     return
-            except RuntimeError as e:
-                if "CUDA out of memory" in str(e):
-                    text = "Out of VRAM, try a different image."
-                    print(text)
-                else:
-                    print(e)
+            # except RuntimeError as e:
+            #     if "CUDA out of memory" in str(e):
+            #         text = "Out of VRAM, try a different image."
+            #         print(text)
+            #     elif "Potential NSFW content was detected" in str(e):
+            #         text = "Potential NSFW content was detected"
+            #         bad = True
+            #         print(text)
+            #     else:
+            #         print(e)
             except Exception as e:
                 print(e)
                 
-
                 os.remove(attachment.filename)
                 await message.remove_reaction('⏳', client.user)
                 await message.add_reaction('❌')
@@ -206,7 +227,7 @@ async def on_message(message):
             await message.remove_reaction('⏳', client.user)
 
             try:
-                if text:
+                if text and not bad:
                     if len(text) >= 2000:
                         send_queue = textwrap.wrap(text, width=2000)
                         for i, string in enumerate(send_queue):
@@ -218,6 +239,10 @@ async def on_message(message):
                     else:
                         await message.channel.send(text)
                     await message.add_reaction('✅')
+                else:
+                    # NSFW image
+                    await message.add_reaction('❌')
+                    await message.channel.send(text)
             except UnboundLocalError:
                 pass
             except discord.errors.HTTPException:
