@@ -171,7 +171,7 @@ async def on_message(message):
 
                     text_list = []
                     for item in list_sorted:
-                        text_list.append(f"{item[0]}: {item[1] * 100}%")
+                        text_list.append(f"{item[0]}: {item[1] * 100:.2f}%")
                     text = "\n".join(text_list)
 
                 # Stable-diffusion img2img
