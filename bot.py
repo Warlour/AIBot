@@ -163,11 +163,7 @@ async def on_message(message):
                         logits_per_image, logits_per_text = model(image, textprob)
                         probs = logits_per_image.softmax(dim=-1).cpu().numpy()
 
-                    probas = []
-                    for item in probs[0]:
-                        probas.append(np.format_float_positional(item * 100, precision=2) + "%")
-                    
-                    list_sorted = sorted(zip(possibilities, probas), key=lambda x: x[1], reverse=True)
+                    list_sorted = sorted(zip(possibilities, probs), key=lambda x: x[1], reverse=True)
 
                     text_list = []
                     for item in list_sorted:
