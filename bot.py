@@ -165,13 +165,13 @@ async def on_message(message):
 
                     probas = []
                     for item in probs[0]:
-                        probas.append(np.format_float_positional(item * 100, precision=2) + "%")
+                        probas.append(float(np.format_float_positional(item, precision=4)))
                     
                     list_sorted = sorted(zip(possibilities, probas), key=lambda x: x[1], reverse=True)
 
                     text_list = []
-                    for item in list_sorted:
-                        text_list.append(f"{item[0]}: {item[1] * 100}%")
+                    for i in list_sorted:
+                        text_list.append(f"{possibilities[i]}: {list_sorted[i]}")
                     text = "\n".join(text_list)
 
                 # Stable-diffusion img2img
