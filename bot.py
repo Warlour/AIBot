@@ -165,15 +165,15 @@ async def on_message(message):
                         logits_per_image, logits_per_text = model(image, textprob)
                         probs = logits_per_image.softmax(dim=-1).cpu().numpy()
 
-                    probas = []
-                    for item in probs[0]:
-                        probas.append(np.format_float_positional(item * 100, precision=2) + "%")
+                    list_sorted = sorted(zip(possibilities, probs), key=lambda x: x[1], reverse=True)
 
                     text_list = []
-                    for i in range(len(probas)):
-                        text_list.append(f"{possibilities[i]}: {probas[i]}")
-                    list_sorted = sorted(text_list, key=lambda x: x.split(": ")[-1][:-1], reverse=True)
-                    text = "\n".join(list_sorted)
+                    for item in list_sorted:
+                        text_list.append(f"{item[0]}: {item[1] * 100}%")
+                    text = "\n".join(text_list)
+
+                    print(text)
+
 
                 # Stable-diffusion img2img
                 elif attachment.filename.endswith(('.png', '.jpg', '.webp')) and message.content.startswith('draw:'):
