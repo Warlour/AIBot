@@ -3,20 +3,23 @@ import discord
 import requests
 
 # Processing
-from PIL import Image
 import numpy as np
 import textwrap
 import re
 
+from logic import *
+
 # Models and related
-'''Whisper'''
+'''Whisper | Transcription of audio and video'''
 import whisper
-'''CLIP'''
+'''CLIP | Image guesser'''
 import torch
 import clip
-'''Stable-diffusion'''
+'''Stable-diffusion | Image generation'''
 from diffusers import StableDiffusionPipeline
 from diffusers import StableDiffusionImg2ImgPipeline
+'''Pygmalion-6b | Character player'''
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
 #openai.api_key = os.environ["OPENAI_API_KEY"]
 discord_token = os.environ["DISCORD_TOKEN_BOT1"]
@@ -27,221 +30,205 @@ client = discord.Client(intents=intents)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-def text_between(string, start, end):
-    start_index = string.find(start)
-    if start_index != -1:
-        start_index += len(start)
-        end_index = string.find(end, start_index)
-        if end_index == -1:
-            end_index = len(string)
-        return string[start_index:end_index]
-
-def is_image(filename):
-    try:
-        with Image.open(filename) as im:
-            return True
-    except:
-        return False
-
 @client.event
 async def on_ready():
     print(f"Logged in as {client.user}")
 
+# If you want the models to work on your own Discord server, you have to change the channel ids
 @client.event
 async def on_message(message):
     if message.author == client.user:
         return
-    if 'clear' in message.content:
+    if message.content == 'clear' and message.author.id == 152917625700089856:
+        print(f"Purging channel: {message.channel.name}")
         await message.channel.purge()
 
-    # Models only requiring text
-    if not message.attachments:
-        pattern = r"\d+(?=\s*.draw:)"
-        match = re.search(pattern, message.content)
-        try:
-            x = match.group(0)
-        except AttributeError as e:
-            x = 1
+    '''Models only requiring text'''
+    # Stable diffusion -> Image
+    if message.channel.id == 1084440260517298196:
+        # Any number followed by a colon
+        pattern = r'^\d+:'
 
-        if int(x) < 1:
+        # If pattern matches message
+        if re.match(pattern, message.content):
+            # Split string to number and message
+            splitstring = re.split(r':', message.content, maxsplit=1)
+
+            # Number
+            x = splitstring[0]
+            if int(x) < 1 or int(x) > 5:
+                return
+
+            # Prompt
+            prompt = splitstring[-1]
+        else:
             return
         
-        # Stable-diffusion
-        if message.content and (message.content.startswith(f'{x}.draw:') or message.content.startswith('draw:')):
-            await message.add_reaction('⏳')
+        await message.add_reaction('⏳')
 
-            prompt = message.content.replace("draw: ", "").split('draw:')[-1]
-            replied = False
+        # Generate x images
+        for _ in range(int(x)):
+            print(f"{prompt} | Image nr: {str(_)}")
             try:
-                for _ in range(int(x)):
-                    print("Image nr: " + str(_))
-                    try:
-                        pipe = StableDiffusionPipeline.from_pretrained("stable-diffusion-v1-4", torch_dtype=torch.float16).to(device)
+                pipe = StableDiffusionPipeline.from_pretrained("stable-diffusion-v1-4", torch_dtype=torch.float16).to(device)
 
-                        filename = f"{_}{prompt}.png"
-                        pipe(prompt.strip()).images[0].save(filename)
+                filename = f"{_}{prompt}.png"
+                pipe(prompt.strip()).images[0].save(filename)
 
-                        with open(filename, 'rb') as f:
-                            file = discord.File(f)
-                    
-                        if is_image(filename):
-                            if not replied:
-                                replied = True
-                                await message.channel.send(prompt)
-                            
-                            await message.channel.send(f"Image {_ + 1} of {int(x)}", file=file)
+                with open(filename, 'rb') as f:
+                    file = discord.File(f)
+            
+                if is_image(filename):
+                    await message.channel.send(f"{prompt} | Image {_ + 1} of {int(x)}", file=file)
 
-                            if _ == int(x)-1:
-                                await message.remove_reaction('⏳', client.user)
-                                await message.add_reaction('✅')
-                        
-                    except Exception as e:
-                        print(e)
-                    f.close()
-                    os.remove(filename)
+                    if _ == int(x)-1:
+                        await message.remove_reaction('⏳', client.user)
+                        await message.add_reaction('✅')
             except Exception as e:
+                print(e)
                 await message.remove_reaction('⏳', client.user)
                 await message.add_reaction('❌')
 
-    # Models requiring files as input
-    elif message.attachments:
-        print(message.content)
-        for attachment in message.attachments:
-            bad = False
-            # Download and write file as binary
-            r = requests.get(attachment.url)
-            with open(attachment.filename, 'wb') as f:
-                f.write(r.content)
+            f.close()
+            os.remove(filename)
 
-            await message.add_reaction('⏳')
+    # Pygmalion
+    if message.channel.id == 1090751089059573871:
+        pass
 
-            try:
-                # Whisper
-                if attachment.filename.endswith(('mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'wav', 'webm')):
-                    muligheder = ['transcribe', 'detect']
-                    model_name = "medium"
-                    model = whisper.load_model(model_name, device=device)
-                    # print(
-                    #     f"Model is {'multilingual' if model.is_multilingual else 'English-only'} "
-                    #     f"and has {sum(np.prod(p.shape) for p in model.parameters()):,} parameters."
-                    # )
+    '''Models requiring files as input'''
+    for attachment in message.attachments:
+        # Download and write file as binary
+        r = requests.get(attachment.url)
+        with open(attachment.filename, 'wb') as f:
+            f.write(r.content)
 
-                    text = f"Using the {model_name} Whisper model with {sum(np.prod(p.shape) for p in model.parameters()):,} parameters:\n"
-                    if 'transcribe' in message.content:
-                        prompt = ""
-                        if 'transcribe: ' in message.content:
-                            prompt = text_between(message.content, "transcribe: ", " detect")
-                            print(prompt)
-                        result = model.transcribe(attachment.filename, initial_prompt=prompt)
-                        text += f'Transcribed {attachment.filename}: `{result["text"].strip()}`\n\n'
+        await message.add_reaction('⏳')
 
-                    if 'detect' in message.content:
-                        audio = whisper.load_audio(attachment.filename)
-                        audio = whisper.pad_or_trim(audio)
-
-                        mel = whisper.log_mel_spectrogram(audio).to(model.device)
-
-                        _, probs = model.detect_language(mel)
-                        text += f"Detected language: {max(probs, key=probs.get)}\n\n"
-                    if not any(string2 in message.content for string2 in muligheder):
-                        text += "I'm not sure what you want me to do?"
-
-                # CLIP
-                elif attachment.filename.endswith(('.png', '.jpg', '.jpeg', '.webp')) and message.content and message.content.startswith('guess:'):
-                    model_name = "ViT-B/32"
-                    model, preprocess = clip.load(model_name, device=device)
-                    text = f"Using the {model_name} CLIP model with {sum(np.prod(p.shape) for p in model.parameters()):,} parameters:\n"
-
-                    image = preprocess(Image.open(attachment.filename)).unsqueeze(0).to(device)
-                    msg = message.content.replace("guess:", "", 1)
-                    possibilities = msg.split(", ")
-                    textprob = clip.tokenize(possibilities).to(device)
-
-                    with torch.no_grad():
-                        image_features = model.encode_image(image)
-                        text_features = model.encode_text(textprob)
-                        logits_per_image, logits_per_text = model(image, textprob)
-                        probs = logits_per_image.softmax(dim=-1).cpu().numpy()
-
-                    probas = []
-                    for item in probs[0]:
-                        probas.append(float(np.format_float_positional(item, precision=4)))
+        try:
+            # Whisper -> Text
+            if message.channel.id == 1084408319457894400 and attachment.filename.endswith(('mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'wav', 'webm')):
+                if not any(string2 in message.content for string2 in ['transcribe', 'detect']):
+                    try:
+                        f.close()
+                        os.remove(attachment.filename)
+                    except:
+                        pass
                     
-                    list_sorted = sorted(zip(possibilities, probas), key=lambda x: x[1], reverse=True)
+                    await message.remove_reaction('⏳', client.user)
+                    await message.add_reaction('❌')
+                    await message.channel.send("I'm not sure what you want me to do?")
+                    return
+                
+                model_name = "medium"
+                model = whisper.load_model(model_name, device=device)
+                # print(
+                #     f"Model is {'multilingual' if model.is_multilingual else 'English-only'} "
+                #     f"and has {sum(np.prod(p.shape) for p in model.parameters()):,} parameters."
+                # )
 
-                    text_list = []
-                    for item in list_sorted:
-                        text_list.append(f"{item[0]}: {item[1] * 100:.2f}%")
-                    text = "\n".join(text_list)
+                text = f"Using the {model_name} Whisper model with {sum(np.prod(p.shape) for p in model.parameters()):,} parameters:\n"
+                if 'transcribe' in message.content:
+                    prompt = ""
+                    if 'transcribe: ' in message.content:
+                        prompt = text_between(message.content, "transcribe: ", " detect")
+                        print(prompt)
+                    result = model.transcribe(attachment.filename, initial_prompt=prompt)
+                    text += f'Transcribed {attachment.filename}: `{result["text"].strip()}`\n\n'
 
-                # Stable-diffusion img2img
-                elif attachment.filename.endswith(('.png', '.jpg', '.webp')) and message.content.startswith('draw:'):
-                    await message.add_reaction('⏳')
+                if 'detect' in message.content:
+                    audio = whisper.load_audio(attachment.filename)
+                    audio = whisper.pad_or_trim(audio)
 
-                    pipe = StableDiffusionImg2ImgPipeline.from_pretrained("stable-diffusion-v1-4", torch_dtype=torch.float16).to(device)
-                    prompt = message.content.replace("draw:", "")
-                    image_prompt = Image.open(attachment.filename)
-                    filename = f"edited_{attachment.filename}"
-                    pipe(prompt=prompt, image=image_prompt).images[0].save(filename)
+                    mel = whisper.log_mel_spectrogram(audio).to(model.device)
 
-                    with open(filename, 'rb') as f:
-                        file = discord.File(f)
+                    _, probs = model.detect_language(mel)
+                    text += f"Detected language: {max(probs, key=probs.get)}\n\n"
 
-                    if is_image(filename):
-                        await message.remove_reaction('⏳', client.user)
-                        await message.add_reaction('✅')
-                        await message.channel.send("", file=file)
+            # CLIP -> Text
+            if message.channel.id == 1084408335899566201 and attachment.filename.endswith(('.png', '.jpg', '.jpeg', '.webp')) and message.content:
+                model_name = "ViT-B/32"
+                # Load model
+                model, preprocess = clip.load(model_name, device=device)
+                text = f"Using the {model_name} CLIP model with {sum(np.prod(p.shape) for p in model.parameters()):,} parameters:\n"
 
-                    else:
-                        await message.remove_reaction('⏳', client.user)
-                        await message.add_reaction('❌')
-                    
-                    f.close()
-                    os.remove(filename)
+                image = preprocess(Image.open(attachment.filename)).unsqueeze(0).to(device)
+                possibilities = message.content.split(", ")
+                textprob = clip.tokenize(possibilities).to(device)
 
+                with torch.no_grad():
+                    image_features = model.encode_image(image)
+                    text_features = model.encode_text(textprob)
+                    logits_per_image, logits_per_text = model(image, textprob)
+                    probs = logits_per_image.softmax(dim=-1).cpu().numpy()
+
+                probas = []
+                for item in probs[0]:
+                    probas.append(float(np.format_float_positional(item, precision=4)))
+                
+                list_sorted = sorted(zip(possibilities, probas), key=lambda x: x[1], reverse=True)
+
+                text_list = []
+                for item in list_sorted:
+                    text_list.append(f"{item[0]}: {item[1] * 100:.2f}%")
+                text = "\n".join(text_list)
+
+            # Stable-diffusion -> Image
+            if message.channel.id == 1084511996139020460 and attachment.filename.endswith(('.png', '.jpg', '.webp')) and message.content:
+                await message.add_reaction('⏳')
+
+                pipe = StableDiffusionImg2ImgPipeline.from_pretrained("stable-diffusion-v1-4", torch_dtype=torch.float16).to(device)
+                prompt = message.content
+                image_prompt = Image.open(attachment.filename)
+                filename = f"edited_{attachment.filename}"
+                pipe(prompt=prompt, image=image_prompt).images[0].save(filename)
+
+                with open(filename, 'rb') as f:
+                    file = discord.File(f)
+
+                if is_image(filename):
+                    await message.remove_reaction('⏳', client.user)
+                    await message.add_reaction('✅')
+                    await message.channel.send(prompt, file=file)
                 else:
                     await message.remove_reaction('⏳', client.user)
                     await message.add_reaction('❌')
-                    return
-            # except RuntimeError as e:
-            #     if "CUDA out of memory" in str(e):
-            #         text = "Out of VRAM, try a different image."
-            #         print(text)
-            #     elif "Potential NSFW content was detected" in str(e):
-            #         text = "Potential NSFW content was detected"
-            #         bad = True
-            #         print(text)
-            #     else:
-            #         print(e)
-            except Exception as e:
-                print(e)
-                
-                os.remove(attachment.filename)
-                await message.remove_reaction('⏳', client.user)
-                await message.add_reaction('❌')
-                return
-
-            # Delete the file
-            os.remove(attachment.filename)
+        except Exception as e:
+            print(e)
+            # Error
             await message.remove_reaction('⏳', client.user)
+            await message.add_reaction('❌')
+            return
+        
+        # Attempt to delete attachment
+        try:
+            await message.remove_reaction('⏳', client.user)
+            f.close()
+            os.remove(attachment.filename)
+        except:
+            pass
 
+        # If there is a text prompt
+        if text:
             try:
-                if text and not bad:
-                    if len(text) >= 2000:
-                        send_queue = textwrap.wrap(text, width=2000)
-                        for i, string in enumerate(send_queue):
-                            string = string.replace("% ", "%\n")
-                            if i == 0:
-                                await message.channel.send(string + "`")
-                            else:
-                                await message.channel.send("`" + string + "`")
-                    else:
-                        await message.channel.send(text)
-                    await message.add_reaction('✅')
+                # If message is too long
+                if len(text) >= 2000:
+                    # Set max size
+                    send_queue = textwrap.wrap(text, width=2000)
+
+                    # Send message separately
+                    for i, string in enumerate(send_queue):
+                        string = string.replace("% ", "%\n")
+                        if i == 0:
+                            await message.channel.send(string + "`")
+                        else:
+                            await message.channel.send("`" + string + "`")
+                # If message is not too long
                 else:
-                    # NSFW image
-                    await message.add_reaction('❌')
                     await message.channel.send(text)
+                
+                # Done
+                await message.add_reaction('✅')
             except UnboundLocalError:
                 pass
             except discord.errors.HTTPException:
