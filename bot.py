@@ -102,8 +102,6 @@ async def on_message(message):
             except Exception as e:
                 await message.remove_reaction('⏳', client.user)
                 await message.add_reaction('❌')
-                    
-
 
     # Models requiring files as input
     elif message.attachments:
@@ -149,13 +147,13 @@ async def on_message(message):
                         text += "I'm not sure what you want me to do?"
 
                 # CLIP
-                elif attachment.filename.endswith(('.png', '.jpg', '.webp')) and message.content and message.content.startswith('guess:'):
+                elif attachment.filename.endswith(('.png', '.jpg', '.jpeg', '.webp')) and message.content and message.content.startswith('guess:'):
                     model_name = "ViT-B/32"
                     model, preprocess = clip.load(model_name, device=device)
                     text = f"Using the {model_name} CLIP model with {sum(np.prod(p.shape) for p in model.parameters()):,} parameters:\n"
 
                     image = preprocess(Image.open(attachment.filename)).unsqueeze(0).to(device)
-                    msg = message.content.replace("guess: ", "", 1)
+                    msg = message.content.replace("guess:", "", 1)
                     possibilities = msg.split(", ")
                     textprob = clip.tokenize(possibilities).to(device)
 
@@ -168,12 +166,13 @@ async def on_message(message):
                     probas = []
                     for item in probs[0]:
                         probas.append(np.format_float_positional(item * 100, precision=2) + "%")
+                    
+                    list_sorted = sorted(zip(possibilities, probas), key=lambda x: x[1], reverse=True)
 
                     text_list = []
-                    for i in range(len(probas)):
-                        text_list.append(f"{possibilities[i]}: {probas[i]}")
-                    list_sorted = sorted(text_list, key=lambda x: x.split(": ")[-1][:-1], reverse=True)
-                    text = "\n".join(list_sorted)
+                    for item in list_sorted:
+                        text_list.append(f"{item[0]}: {item[1] * 100}%")
+                    text = "\n".join(text_list)
 
                 # Stable-diffusion img2img
                 elif attachment.filename.endswith(('.png', '.jpg', '.webp')) and message.content.startswith('draw:'):
