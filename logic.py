@@ -25,3 +25,10 @@ def ytdownload(url: str) -> str:
     match = re.search(r'"(.+)"', str(result))
     if match:
         return match.group(1)
+    
+
+def seperate_string(input_string:str) -> list[str]:
+    if len(input_string) <= 1998:
+        return [input_string]
+    else:
+        return [input_string[i:i+1998] for i in range(0, len(input_string), 1998)]

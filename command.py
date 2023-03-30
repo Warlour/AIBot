@@ -222,9 +222,13 @@ async def self(interaction: discord.Interaction, file: discord.Attachment = None
         result = model.transcribe(filename, initial_prompt=prompt) if prompt else model.transcribe(filename)
         if detect:
             output += " | "
-        output += f"Transcribed {filename}\n`{result['text'].strip()}`"
-    
-    await interaction.followup.send(content=output)
+        output += f"Transcribed {filename}"
+
+    if output:
+        await interaction.followup.send(content=output)
+        for item in seperate_string(result['text'].strip()):
+            await interaction.followup.send(content=f"`{item}`")
+
     os.remove(filename)
 
 client.run(discord_token)
