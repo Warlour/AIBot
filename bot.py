@@ -19,7 +19,8 @@ import clip
 from diffusers import StableDiffusionPipeline
 from diffusers import StableDiffusionImg2ImgPipeline
 '''Pygmalion-6b | Character player'''
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from sagemaker.huggingface import HuggingFaceModel
+import boto3
 
 #openai.api_key = os.environ["OPENAI_API_KEY"]
 discord_token = os.environ["DISCORD_TOKEN_BOT1"]
@@ -66,6 +67,10 @@ async def on_message(message):
         
         await message.add_reaction('⏳')
 
+        seed = re.search(r"seed:(\d+)", prompt).group(1) if re.search(r"seed:(\d+)", prompt) else None
+        if seed:
+            prompt = re.sub(r'seed:(\d+)', '', prompt).strip()
+
         # Generate x images
         for _ in range(int(x)):
             print(f"{prompt} | Image nr: {str(_)}")
@@ -73,13 +78,18 @@ async def on_message(message):
                 pipe = StableDiffusionPipeline.from_pretrained("stable-diffusion-v1-4", torch_dtype=torch.float16).to(device)
 
                 filename = f"{_}{prompt}.png"
-                pipe(prompt.strip()).images[0].save(filename)
+                result = pipe(prompt.strip(), generator=torch.Generator(device).manual_seed(int(seed))) if seed else pipe(prompt.strip())
+                if result['nsfw_content_detected'] == [True]:
+                    await message.channel.send(f"NSFW Detected: {prompt} | Image {_ + 1} of {int(x)} | Seed: {seed}")
+                    raise ValueError('NSFW Detected')
+
+                result.images[0].save(filename)
 
                 with open(filename, 'rb') as f:
                     file = discord.File(f)
             
                 if is_image(filename):
-                    await message.channel.send(f"{prompt} | Image {_ + 1} of {int(x)}", file=file)
+                    await message.channel.send(f"{prompt} | Image {_ + 1} of {int(x)} | Seed: {seed}", file=file)
 
                     if _ == int(x)-1:
                         await message.remove_reaction('⏳', client.user)
@@ -89,12 +99,77 @@ async def on_message(message):
                 await message.remove_reaction('⏳', client.user)
                 await message.add_reaction('❌')
 
-            f.close()
-            os.remove(filename)
+            try:
+                f.close()
+                os.remove(filename)
+            except UnboundLocalError:
+                pass
+    
+    # Stable diffusion 1.5 -> Image
+    if message.channel.id == 1090783286793621614:
+        # Any number followed by a colon
+        pattern = r'^\d+:'
 
-    # Pygmalion
+        # If pattern matches message
+        if re.match(pattern, message.content):
+            # Split string to number and message
+            splitstring = re.split(r':', message.content, maxsplit=1)
+
+            # Number
+            x = splitstring[0]
+            if int(x) < 1 or int(x) > 5:
+                return
+
+            # Prompt
+            prompt = splitstring[-1]
+        else:
+            return
+        
+        await message.add_reaction('⏳')
+
+        seed = re.search(r"seed:(\d+)", prompt).group(1) if re.search(r"seed:(\d+)", prompt) else None
+        if seed:
+            prompt = re.sub(r'seed:(\d+)', '', prompt).strip()
+
+        # Generate x images
+        for _ in range(int(x)):
+            print(f"{prompt} | Image nr: {str(_)}")
+            try:
+                pipe = StableDiffusionPipeline.from_pretrained("stable-diffusion-v1-5", torch_dtype=torch.float16).to(device)
+
+                filename = f"{_}{prompt}.png"
+                result = pipe(prompt.strip(), generator=torch.Generator(device).manual_seed(int(seed))) if seed else pipe(prompt.strip())
+                if result['nsfw_content_detected'] == [True]:
+                    await message.channel.send(f"NSFW Detected: {prompt} | Image {_ + 1} of {int(x)} | Seed: {seed}")
+                    raise ValueError('NSFW Detected')
+
+                result.images[0].save(filename)
+
+                with open(filename, 'rb') as f:
+                    file = discord.File(f)
+            
+                if is_image(filename):
+                    await message.channel.send(f"{prompt} | Image {_ + 1} of {int(x)} | Seed: {seed}", file=file)
+
+                    if _ == int(x)-1:
+                        await message.remove_reaction('⏳', client.user)
+                        await message.add_reaction('✅')
+            except Exception as e:
+                print(e)
+                await message.remove_reaction('⏳', client.user)
+                await message.add_reaction('❌')
+
+            try:
+                f.close()
+                os.remove(filename)
+            except:
+                pass
+
+    # language model
     if message.channel.id == 1090751089059573871:
-        pass
+        if message.content:
+            pass
+
 
     '''Models requiring files as input'''
     for attachment in message.attachments:
