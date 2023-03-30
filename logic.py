@@ -16,3 +16,12 @@ def is_image(filename):
             return True
     except:
         return False
+    
+import subprocess
+import re
+
+def ytdownload(url: str) -> str:
+    result = subprocess.run(["powershell", "-Command", f"youtube-dl.exe {url}"], capture_output=True)
+    match = re.search(r'"(.+)"', str(result))
+    if match:
+        return match.group(1)

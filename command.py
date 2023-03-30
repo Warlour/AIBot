@@ -23,8 +23,11 @@ async def self(interaction: discord.Interaction):
     await interaction.response.defer()
     await interaction.channel.purge()
 
-'''Other'''
+'''Custom'''
 from logic import *
+
+'''Processing'''
+from io import BytesIO
 
 '''AI general'''
 device = 'cuda'
@@ -32,8 +35,7 @@ import torch
 
 '''Stable-diffusion | Image generation'''
 from diffusers import StableDiffusionPipeline
-from io import BytesIO
-
+from diffusers import StableDiffusionImg2ImgPipeline
 
 @tree.command(name = "t2i", description="Generate text to image using Stable Diffusion", guild = discord.Object(id = 1084203391519051786))
 async def self(interaction: discord.Interaction, prompt:str, count:int = 1, seed:int = None):
@@ -102,9 +104,7 @@ async def self(interaction: discord.Interaction, prompt:str, count:int = 1, seed
             else:
                 print(e)
 
-from diffusers import StableDiffusionImg2ImgPipeline
-
-@tree.command(name = "i2i", description="Generate text to image using Stable Diffusion v1.5", guild = discord.Object(id = 1084203391519051786))
+@tree.command(name = "i2i", description="Generate image to image using Stable Diffusion v1.5", guild = discord.Object(id = 1084203391519051786))
 async def self(interaction: discord.Interaction, prompt:str, file: discord.Attachment, count:int = 1, seed:int = None):
     if not interaction.channel.id == 1084511996139020460:
         await interaction.response.send_message("You're in the wrong channel!")
@@ -158,5 +158,73 @@ async def self(interaction: discord.Interaction, prompt:str, file: discord.Attac
     os.remove(file.filename)
     # except:
     #     pass
+
+'''Whisper | Transcription of audio and video'''
+import whisper
+
+import validators
+
+@tree.command(name = "whisper", description="Generate transcriptions and detect language using OpenAI's Whisper model", guild = discord.Object(id = 1084203391519051786))
+async def self(interaction: discord.Interaction, file: discord.Attachment = None, url:str = None, transcribe:bool = True, prompt:str = "", detect:bool = False):
+    if not interaction.channel.id == 1084408319457894400:
+        await interaction.response.send_message("You're in the wrong channel!")
+        await interaction.delete_original_response()
+
+    await interaction.response.defer()
+
+    if not transcribe and not detect:
+        await interaction.response.send_message(content="No operation given; use transcribe and/or detect!")
+        return
+    
+    if not file and not url:
+        await interaction.response.send_message(content="No file or url attached")
+    
+    if file and url:
+        await interaction.response.send_message(content="You can only add a file __or__ an url!")
+
+    if file:
+        if not file.filename.endswith(('.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.wav', '.webm')):
+            await interaction.response.send_message(content="Invalid file extension")
+            return
+        
+        print(f"Downloading {file.filename}")
+        r = requests.get(file.url)
+        with open(file.filename, 'wb') as f:
+            f.write(r.content)
+        
+        filename = file.filename
+    elif url:
+        if (validators.url(url)):
+            filename = ytdownload(url)
+            print(filename)
+        else:
+            await interaction.response.send_message(content="Invalid url!")
+            return
+
+    # TODO: Send file without permissionerror exception
+    # with open(filename, 'rb') as f:
+    #     file = discord.File(f)
+    #     await interaction.response.send_message(content=f"**Text prompt:** {prompt}\n**Count:** {count}\n**Seed:** {seed if seed else 'random'}", file=file)
+
+    model_name = "medium"
+    model = whisper.load_model(model_name, device=device)
+
+    output = ""
+    if detect:
+        audio = whisper.load_audio(filename)
+        audio = whisper.pad_or_trim(audio)
+
+        mel = whisper.log_mel_spectrogram(audio).to(model.device)
+
+        _, probs = model.detect_language(mel)
+        output += f"Detected language: {max(probs, key=probs.get)}"
+    if transcribe:
+        result = model.transcribe(filename, initial_prompt=prompt) if prompt else model.transcribe(filename)
+        if detect:
+            output += " | "
+        output += f"Transcribed {filename}\n`{result['text'].strip()}`"
+    
+    await interaction.followup.send(content=output)
+    os.remove(filename)
 
 client.run(discord_token)
