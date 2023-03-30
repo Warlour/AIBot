@@ -126,34 +126,35 @@ async def self(interaction: discord.Interaction, prompt:str, file: discord.Attac
         f.write(r.content)
 
     with open(file.filename, 'rb') as f:
-        init_file = discord.File(f)
-
-    await interaction.response.send_message(content=f"**Text prompt:** {prompt}\n**Count:** {count}\n**Seed:** {seed if seed else 'random'}", file=init_file)
+        await interaction.response.send_message(content=f"**Text prompt:** {prompt}\n**Count:** {count}\n**Seed:** {seed if seed else 'random'}", file=discord.File(f))
     
-    for _ in range(int(count)):
-        print(f"{prompt} | Image nr: {str(_)}")
-        try:
-            pipe = StableDiffusionImg2ImgPipeline.from_pretrained("stable-diffusion-v1-5", torch_dtype=torch.float16).to(device)
-            image_prompt = Image.open(file.filename)    
+    with Image.open(file.filename) as image_prompt:
+        for _ in range(int(count)):
+            print(f"{prompt} | Image nr: {str(_)}")
+            try:
+                pipe = StableDiffusionImg2ImgPipeline.from_pretrained("stable-diffusion-v1-5", torch_dtype=torch.float16).to(device)
+                result = pipe(prompt=prompt, image=image_prompt, generator=torch.Generator(device).manual_seed(int(seed))) if seed else pipe(prompt=prompt, image=image_prompt)
 
-            result = pipe(prompt=prompt, image=image_prompt, generator=torch.Generator(device).manual_seed(int(seed))) if seed else pipe(prompt=prompt, image=image_prompt)
-            if result['nsfw_content_detected'] == [True]:
-                await interaction.followup.send(content=f"NSFW Detected on image {_ + 1} of {int(count)}")
-                raise ValueError('NSFW Detected')
-            
-            with BytesIO() as image_binary:
-                result.images[0].save(image_binary, 'PNG')
-                image_binary.seek(0)
-                await interaction.followup.send(content=f"Image {_ + 1} of {int(count)}", file=discord.File(fp=image_binary, filename='image.png'))
-        except ValueError as e:
-            if 'NSFW Detected' in str(e):
-                pass
-            else:
-                print(e)
-        except RuntimeError as e:
-            if 'out of CUDA out of memory' in str(e):
-                interaction.followup.send(content=f"Out of memory: Image {_ + 1} of {int(count)}, try another image")
-
-        
+                if result['nsfw_content_detected'] == [True]:
+                    await interaction.followup.send(content=f"NSFW Detected on image {_ + 1} of {int(count)}")
+                    raise ValueError('NSFW Detected')
+                
+                with BytesIO() as image_binary:
+                    result.images[0].save(image_binary, 'PNG')
+                    image_binary.seek(0)
+                    await interaction.followup.send(content=f"Image {_ + 1} of {int(count)}", file=discord.File(fp=image_binary, filename='image.png'))
+            except ValueError as e:
+                if 'NSFW Detected' in str(e):
+                    pass
+                else:
+                    print(e)
+            except RuntimeError as e:
+                if 'out of CUDA out of memory' in str(e):
+                    interaction.followup.send(content=f"Out of memory: Image {_ + 1} of {int(count)}, try another image")
+    # try:
+    image_prompt.close()
+    os.remove(file.filename)
+    # except:
+    #     pass
 
 client.run(discord_token)
