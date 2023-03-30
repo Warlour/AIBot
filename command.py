@@ -125,10 +125,10 @@ async def self(interaction: discord.Interaction, prompt:str, file: discord.Attac
     with open(file.filename, 'wb') as f:
         f.write(r.content)
 
-    with open(file.filename, 'rb') as f:
-        file = discord.File(f)
-        await interaction.response.send_message(content=f"**Text prompt:** {prompt}\n**Count:** {count}\n**Seed:** {seed if seed else 'random'}", file=file)
-    # await interaction.response.defer()
+    # with open(file.filename, 'rb') as f:
+    #     file = discord.File(f)
+    #     await interaction.response.send_message(content=f"**Text prompt:** {prompt}\n**Count:** {count}\n**Seed:** {seed if seed else 'random'}", file=file)
+    await interaction.response.defer()
 
     image_prompt = Image.open(file.filename)
     for _ in range(int(count)):
