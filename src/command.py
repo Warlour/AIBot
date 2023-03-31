@@ -5,7 +5,9 @@ discord_token = os.environ["DISCORD_TOKEN_BOT1"]
 
 class aclient(discord.Client):
     def __init__(self):
-        super().__init__(intents=discord.Intents.default())
+        intents = discord.Intents.default()
+        intents.message_content = True
+        super().__init__(intents=intents)
         self.synced = False
     
     async def on_ready(self):
@@ -18,10 +20,29 @@ class aclient(discord.Client):
 client = aclient()
 tree = app_commands.CommandTree(client)
 
+@tree.command(name = "test", description = "Used for testing purposes", guild = discord.Object(id = 1084203391519051786))
+async def self(interaction: discord.Interaction):
+    #await interaction.response.defer()
+    modal = discord.ui.Modal(title="Create ...", timeout=None)
+
+    urlInput = discord.ui.TextInput(label="URL", placeholder="Insert YouTube link here!", required=False)
+    modal.add_item(urlInput)
+    
+    # transcribeOpt = discord.SelectOption(label="Transcribe", description="Transcribes the audio to text in English", default=True)
+    # detectOpt = discord.SelectOption(label="Detect Language", description="Detects the language spoken in the audio", default=False)
+    # options = [transcribeOpt, detectOpt]
+    # optSelect = discord.ui.Select(min_values=1, max_values=1, options=options)
+    # modal.add_item(optSelect)
+
+    await interaction.response.send_modal(modal)
+
 @tree.command(name = "clear", description = "Clear the current channel", guild = discord.Object(id = 1084203391519051786))
 async def self(interaction: discord.Interaction):
     await interaction.response.defer()
-    await interaction.channel.purge()
+    if interaction.user.id == 152917625700089856:
+        await interaction.channel.purge()
+    else:
+        interaction.response.send_message(content="You do not have permissions to do this!")
 
 '''Custom'''
 from logic import *
@@ -37,72 +58,51 @@ import torch
 from diffusers import StableDiffusionPipeline
 from diffusers import StableDiffusionImg2ImgPipeline
 
-@tree.command(name = "t2i", description="Generate text to image using Stable Diffusion", guild = discord.Object(id = 1084203391519051786))
-async def self(interaction: discord.Interaction, prompt:str, count:int = 1, seed:int = None):
-    if not interaction.channel.id == 1084440260517298196:
-        await interaction.response.send_message("You're in the wrong channel!")
-        await interaction.delete_original_response()
-
-    # await interaction.response.defer()
-    if count < 1 or count > 5:
-        await interaction.response.send_message(content="I cannot send less than 1 or more than 5 pictures!")
-        return
-
-    if not prompt:
-        await interaction.response.send_message(content="No prompt given")
-
-    await interaction.response.send_message(f"**Prompt:** {prompt}\n**Count:** {count}\n**Seed:** {seed if seed else 'random'}")
-    for _ in range(int(count)):
-        print(f"{prompt} | Image nr: {str(_)}")
-        try:
-            pipe = StableDiffusionPipeline.from_pretrained("stable-diffusion-v1-4", torch_dtype=torch.float16).to(device)
-            result = pipe(prompt, generator=torch.Generator(device).manual_seed(int(seed))) if seed else pipe(prompt)
-            if result['nsfw_content_detected'] == [True]:
-                await interaction.followup.send(content=f"NSFW Detected on image {_ + 1} of {int(count)}")
-                raise ValueError('NSFW Detected')
-            
-            with BytesIO() as image_binary:
-                result.images[0].save(image_binary, 'PNG')
-                image_binary.seek(0)
-                await interaction.followup.send(content=f"Image {_ + 1} of {int(count)}", file=discord.File(fp=image_binary, filename='image.png'))
-        except ValueError as e:
-            if 'NSFW Detected' in str(e):
-                pass
-            else:
-                print(e)
-
-@tree.command(name = "t2i2", description="Generate text to image using Stable Diffusion v1.5", guild = discord.Object(id = 1084203391519051786))
+@tree.command(name = "t2i", description="Generate text to image using Stable Diffusion v1.5", guild = discord.Object(id = 1084203391519051786))
 async def self(interaction: discord.Interaction, prompt:str, count:int = 1, seed:int = None):
     if not interaction.channel.id == 1090783286793621614:
         await interaction.response.send_message("You're in the wrong channel!")
         await interaction.delete_original_response()
 
+    await interaction.response.defer()
+
     if count < 1 or count > 5:
-        await interaction.response.send_message(content="I cannot send less than 1 or more than 5 pictures!")
+        await interaction.response.followup.send(content="I cannot send less than 1 or more than 5 pictures!")
         return
     
     if not prompt:
-        await interaction.response.send_message(content="No prompt given")
-    
-    await interaction.response.send_message(f"**Prompt:** {prompt}\n**Count:** {count}\n**Seed:** {seed if seed else 'random'}")
+        await interaction.response.followup.send(content="No prompt given")
+
+    filename = f"prompt.png"
+
+    files = []
+    outputtext = f"**Text prompt:** {prompt}\n**Count:** {count}\n**Seed:**  {seed if seed else 'random'}\n"
+
     for _ in range(int(count)):
         print(f"{prompt} | Image nr: {str(_)}")
         try:
             pipe = StableDiffusionPipeline.from_pretrained("stable-diffusion-v1-5", torch_dtype=torch.float16).to(device)
-            result = pipe(prompt, generator=torch.Generator(device).manual_seed(int(seed))) if seed else pipe(prompt)
+            result = pipe(prompt=prompt, generator=torch.Generator(device).manual_seed(int(seed))) if seed else pipe(prompt=prompt)
+
             if result['nsfw_content_detected'] == [True]:
-                await interaction.followup.send(content=f"NSFW Detected on image {_ + 1} of {int(count)}")
                 raise ValueError('NSFW Detected')
             
-            with BytesIO() as image_binary:
-                result.images[0].save(image_binary, 'PNG')
-                image_binary.seek(0)
-                await interaction.followup.send(content=f"Image {_ + 1} of {int(count)}", file=discord.File(fp=image_binary, filename='image.png'))
+            result.images[0].save(f"{_+1}_{filename}", 'PNG')
+            files.append(discord.File(fp=f"{_+1}_{filename}", description=f"Image {_ + 1} of {int(count)}"))
         except ValueError as e:
             if 'NSFW Detected' in str(e):
-                pass
+                outputtext += f"NSFW Detected on image {_ + 1} of {int(count)}\n"
             else:
                 print(e)
+        except RuntimeError as e:
+            if 'out of CUDA out of memory' in str(e):
+                outputtext += f"Out of memory: Image {_ + 1} of {int(count)}, try another image"
+                break
+
+    await interaction.followup.send(content=outputtext, files=files)
+
+    for file in files:
+        os.remove(file.filename)
 
 @tree.command(name = "i2i", description="Generate image to image using Stable Diffusion v1.5", guild = discord.Object(id = 1084203391519051786))
 async def self(interaction: discord.Interaction, prompt:str, file: discord.Attachment, count:int = 1, seed:int = None):
@@ -110,62 +110,65 @@ async def self(interaction: discord.Interaction, prompt:str, file: discord.Attac
         await interaction.response.send_message("You're in the wrong channel!")
         await interaction.delete_original_response()
 
+    await interaction.response.defer()
+
     if count < 1 or count > 5:
-        await interaction.response.send_message(content="I cannot send less than 1 or more than 5 pictures!")
+        await interaction.followup.send(content="I cannot send less than 1 or more than 5 pictures!")
         return
     
     if not prompt:
-        await interaction.response.send_message(content="No prompt given")
+        await interaction.followup.send(content="No prompt given")
     
     if not file or not file.filename.endswith(('.png', '.jpg', '.webp', 'jpeg')):
-        await interaction.response.send_message(content="Invalid file extension")
+        await interaction.followup.send(content="Invalid file extension")
         return
     
     r = requests.get(file.url)
     with open(file.filename, 'wb') as f:
         f.write(r.content)
+    
+    filename = file.filename
 
-    # with open(file.filename, 'rb') as f:
-    #     file = discord.File(f)
-    #     await interaction.response.send_message(content=f"**Text prompt:** {prompt}\n**Count:** {count}\n**Seed:** {seed if seed else 'random'}", file=file)
-    await interaction.response.defer()
+    files = []
+    files.append(discord.File(fp=filename, description="Prompt file"))
+    outputtext = f"**Text prompt:** {prompt}\n**Count:** {count}\n**Seed:**  {seed if seed else 'random'}\n"
+    
 
-    image_prompt = Image.open(file.filename)
     for _ in range(int(count)):
         print(f"{prompt} | Image nr: {str(_)}")
         try:
             pipe = StableDiffusionImg2ImgPipeline.from_pretrained("stable-diffusion-v1-5", torch_dtype=torch.float16).to(device)
-            result = pipe(prompt=prompt, image=image_prompt, generator=torch.Generator(device).manual_seed(int(seed))) if seed else pipe(prompt=prompt, image=image_prompt)
+            with Image.open(filename) as im:
+                result = pipe(prompt=prompt, image=im, generator=torch.Generator(device).manual_seed(int(seed))) if seed else pipe(prompt=prompt, image=im)
 
             if result['nsfw_content_detected'] == [True]:
-                await interaction.followup.send(content=f"NSFW Detected on image {_ + 1} of {int(count)}")
                 raise ValueError('NSFW Detected')
             
-            with BytesIO() as image_binary:
-                result.images[0].save(image_binary, 'PNG')
-                image_binary.seek(0)
-                await interaction.followup.send(content=f"Image {_ + 1} of {int(count)}", file=discord.File(fp=image_binary, filename='image.png'))
+            result.images[0].save(f"{_+1}_{filename}", 'PNG')
+            files.append(discord.File(fp=f"{_+1}_{filename}", description=f"Image {_ + 1} of {int(count)}"))
         except ValueError as e:
             if 'NSFW Detected' in str(e):
-                pass
+                outputtext += f"NSFW Detected on image {_ + 1} of {int(count)}\n"
             else:
                 print(e)
         except RuntimeError as e:
             if 'out of CUDA out of memory' in str(e):
-                interaction.followup.send(content=f"Out of memory: Image {_ + 1} of {int(count)}, try another image")
-    # try:
-    image_prompt.close()
-    os.remove(file.filename)
-    # except:
-    #     pass
+                outputtext += f"Out of memory: Image {_ + 1} of {int(count)}, try another image"
+                break
+
+    await interaction.followup.send(content=outputtext, files=files)
+
+    for file in files:
+        os.remove(file.filename)
 
 '''Whisper | Transcription of audio and video'''
 import whisper
 
 import validators
 
+# Attach audio file and output text
 @tree.command(name = "whisper", description="Generate transcriptions and detect language using OpenAI's Whisper model", guild = discord.Object(id = 1084203391519051786))
-async def self(interaction: discord.Interaction, file: discord.Attachment = None, url:str = None, transcribe:bool = True, prompt:str = "", detect:bool = False):
+async def self(interaction: discord.Interaction, file:discord.Attachment = None, url:str = None, transcribe:bool = True, prompt:str = "", detect:bool = False):
     if not interaction.channel.id == 1084408319457894400:
         await interaction.response.send_message("You're in the wrong channel!")
         await interaction.delete_original_response()
@@ -173,18 +176,18 @@ async def self(interaction: discord.Interaction, file: discord.Attachment = None
     await interaction.response.defer()
 
     if not transcribe and not detect:
-        await interaction.response.send_message(content="No operation given; use transcribe and/or detect!")
+        await interaction.followup.send(content="No operation given; use transcribe and/or detect!")
         return
     
     if not file and not url:
-        await interaction.response.send_message(content="No file or url attached")
+        await interaction.followup.send(content="No file or url attached")
     
     if file and url:
-        await interaction.response.send_message(content="You can only add a file __or__ an url!")
+        await interaction.followup.send(content="You can only add a file __or__ an url!")
 
     if file:
         if not file.filename.endswith(('.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.wav', '.webm')):
-            await interaction.response.send_message(content="Invalid file extension")
+            await interaction.followup.send(content="Invalid file extension")
             return
         
         print(f"Downloading {file.filename}")
@@ -198,13 +201,8 @@ async def self(interaction: discord.Interaction, file: discord.Attachment = None
             filename = ytdownload(url)
             print(filename)
         else:
-            await interaction.response.send_message(content="Invalid url!")
+            await interaction.followup.send(content="Invalid url!")
             return
-
-    # TODO: Send file without permissionerror exception
-    # with open(filename, 'rb') as f:
-    #     file = discord.File(f)
-    #     await interaction.response.send_message(content=f"**Text prompt:** {prompt}\n**Count:** {count}\n**Seed:** {seed if seed else 'random'}", file=file)
 
     model_name = "medium"
     model = whisper.load_model(model_name, device=device)
@@ -224,11 +222,97 @@ async def self(interaction: discord.Interaction, file: discord.Attachment = None
             output += " | "
         output += f"Transcribed {filename}"
 
-    if output:
-        await interaction.followup.send(content=output)
-        for item in seperate_string(result['text'].strip()):
-            await interaction.followup.send(content=f"`{item}`")
+    if result['text']:
+        inputPrompt = discord.File(fp=filename)
 
-    os.remove(filename)
+        with open(f"transcription_{filename}.txt", "w") as f:
+            f.write(result['text'].strip())
+        outputfile = discord.File(fp=f"transcription_{filename.rsplit(sep='.', maxsplit=1)}.txt")
+
+        files = [inputPrompt, outputfile]
+        await interaction.followup.send(content=output, files=files)
+    else:
+        await interaction.followup.send(content="Could not create a transcription")
+
+    for file in files:
+        os.remove(file.filename)
+
+'''Clip | Guessing'''
+import clip
+import numpy as np
+
+# Attach image and output text
+@tree.command(name = "clip", description="Attach an image and possible guesses to make AI guess what is in image", guild = discord.Object(id = 1084203391519051786))
+async def self(interaction: discord.Interaction, file:discord.Attachment, prompt:str):
+    if not interaction.channel.id == 1084408335899566201:
+        await interaction.response.send_message("You're in the wrong channel!")
+        await interaction.delete_original_response()
+
+    await interaction.response.defer()
+
+    if not file:
+        await interaction.followup.send(content="No file attached!")
+        return
+    
+    if not file.filename.endswith(('.png', '.jpg', '.jpeg', '.webp')):
+        await interaction.followup.send(content="Invalid file extension")
+        return
+    
+    if not prompt:
+        await interaction.followup.send(content="No prompt given!")
+        return
+
+    print(f"Downloading {file.filename}")
+    r = requests.get(file.url)
+    with open(file.filename, 'wb') as f:
+        f.write(r.content)
+    
+    filename = file.filename
+
+    model_name = "ViT-B/32"
+
+    # Load model
+    model, preprocess = clip.load(model_name, device=device)
+
+    image = preprocess(Image.open(filename)).unsqueeze(0).to(device)
+    possibilities = prompt.split(", ")
+    textprob = clip.tokenize(possibilities).to(device)
+
+    with torch.no_grad():
+        image_features = model.encode_image(image)
+        text_features = model.encode_text(textprob)
+        logits_per_image, logits_per_text = model(image, textprob)
+        probs = logits_per_image.softmax(dim=-1).cpu().numpy()
+
+    # Create list of percentages
+    probas = []
+    for item in probs[0]:
+        probas.append(float(np.format_float_positional(item, precision=4)))
+    
+    # Create and sort list with possibilites and percentages combined
+    list_sorted = sorted(zip(possibilities, probas), key=lambda x: x[1], reverse=True)
+    print(list_sorted)
+
+    # Format list
+    text_list = []
+    for item in list_sorted:
+        text_list.append(f"{item[0]}: {item[1] * 100:.2f}%")
+    output = "\n".join(text_list)
+    print(text_list)
+    
+    # Send output to discord
+    if output:
+        imagePrompt = discord.File(fp=filename)
+
+        with open(f"guess_{filename}.txt", "w") as f:
+            f.write(output)
+        outputfile = discord.File(fp=f"guess_{filename}.txt")
+
+        files = [imagePrompt, outputfile]
+        await interaction.followup.send(content="", files=files)
+        
+        # Remove files
+        for file in files:
+            os.remove(file.filename)
 
 client.run(discord_token)
