@@ -139,9 +139,6 @@ async def self(interaction: discord.Interaction, prompt:str, file: discord.Attac
         with Image.open(filename) as im:
             result = pipe(prompt=prompt, image=im, num_images_per_prompt=count, generator=generator.manual_seed(int(seed))) if seed else pipe(prompt=prompt, image=im, num_images_per_prompt=count, generator=generator)
         
-        if result['nsfw_content_detected'] == [True]:
-            raise ValueError('NSFW Detected')
-        
         for i, image in enumerate(result.images):
             # If NSFW Detected
             if result.nsfw_content_detected[i] == True:
