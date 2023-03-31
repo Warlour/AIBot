@@ -84,8 +84,6 @@ async def self(interaction: discord.Interaction, prompt:str, count:int = 1, seed
         outputtext = f"**Text prompt:** {prompt}\n**Count:** {count}\n**Seed:**  {generator.initial_seed()}\n"
 
         result = pipe(prompt=prompt, num_images_per_prompt=count, generator=generator.manual_seed(int(seed))) if seed else pipe(prompt=prompt, num_images_per_prompt=count, generator=generator)
-        if result['nsfw_content_detected'] == [True]:
-            raise ValueError('NSFW Detected')
         
         for i, image in enumerate(result.images):
             # If NSFW Detected
