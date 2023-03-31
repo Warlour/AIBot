@@ -57,13 +57,12 @@ import torch
 '''Stable-diffusion | Image generation'''
 stbdfsPath = r"models/stable-diffusion-v1-5"
 from diffusers import StableDiffusionPipeline
-from diffusers import StableDiffusionImg2ImgPipeline
 
 @tree.command(name = "t2i", description="Generate text to image using Stable Diffusion v1.5", guild = discord.Object(id = 1084203391519051786))
-async def self(interaction: discord.Interaction, prompt:str, count:int = 1, seed:int = None):
-    if not interaction.channel.id == 1090783286793621614:
-        await interaction.response.send_message("You're in the wrong channel!")
-        await interaction.delete_original_response()
+async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str = None, count:int = 1, seed:int = None):
+    # if not interaction.channel.id == 1090783286793621614:
+    #     await interaction.response.send_message("You're in the wrong channel!")
+    #     await interaction.delete_original_response()
 
     await interaction.response.defer()
 
@@ -74,22 +73,34 @@ async def self(interaction: discord.Interaction, prompt:str, count:int = 1, seed
     if not prompt:
         await interaction.response.followup.send(content="No prompt given")
 
-    filename = f"{prompt}.png"
+    filename = f"prompt.png"
 
     files = []
 
     try:
-        pipe = StableDiffusionPipeline.from_pretrained(stbdfsPath, torch_dtype=torch.float16).to(device)
+        model_id = stbdfsPath
+        pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16).to(device)
         generator = torch.Generator(device)
+        if not seed:
+            generator.seed()
         outputtext = f"**Text prompt:** {prompt}\n**Count:** {count}\n**Seed:**  {generator.initial_seed()}\n"
 
-        result = pipe(prompt=prompt, num_images_per_prompt=count, generator=generator.manual_seed(int(seed))) if seed else pipe(prompt=prompt, num_images_per_prompt=count, generator=generator)
+        result = pipe(
+            prompt=prompt, 
+            negative_prompt=negative_prompt, 
+            num_images_per_prompt=count, 
+            generator=generator.manual_seed(int(seed))
+        ) if seed else pipe(
+            prompt=prompt, 
+            negative_prompt=negative_prompt, 
+            num_images_per_prompt=count, 
+            generator=generator
+        )
         
         for i, image in enumerate(result.images):
             # If NSFW Detected
             if result.nsfw_content_detected[i] == True:
                 outputtext += f"NSFW Detected on image {i + 1} of {count}\n"
-                continue
 
             name = f"{i+1}_{filename}"
             image.save(name, 'PNG')
@@ -103,11 +114,72 @@ async def self(interaction: discord.Interaction, prompt:str, count:int = 1, seed
     for file in files:
         os.remove(file.filename)
 
+'''OpenJourney'''
+@tree.command(name = "openjourney", description="Generate text to image using OpenJourney", guild = discord.Object(id = 1084203391519051786))
+async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str = None, guidance_scale:float = 7.5, count:int = 1, seed:int = None):
+    # if not interaction.channel.id == 1090728023541682289:
+    #     await interaction.response.send_message("You're in the wrong channel!")
+    #     await interaction.delete_original_response()
+
+    await interaction.response.defer()
+
+    if count < 1 or count > 5:
+        await interaction.response.followup.send(content="I cannot send less than 1 or more than 5 pictures!")
+        return
+    
+    if not prompt:
+        await interaction.response.followup.send(content="No prompt given")
+
+    filename = "output.png"
+
+    files = []
+
+    try:
+        model_id = r"models/openjourney"
+        pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16).to(device)
+        generator = torch.Generator(device)
+        if not seed:
+            generator.seed()
+        outputtext = f"**Text prompt:** {prompt}\n**Negative text prompt:** {negative_prompt}\n**Count:** {count}\n**Seed:**  {generator.initial_seed() if not seed else seed}\n"
+
+        result = pipe(
+            prompt=prompt, 
+            negative_prompt=negative_prompt, 
+            guidance_scale=guidance_scale,
+            num_images_per_prompt=count, 
+            generator=generator.manual_seed(int(seed))
+        ) if seed else pipe(
+            prompt=prompt, 
+            negative_prompt=negative_prompt, 
+            guidance_scale=guidance_scale,
+            num_images_per_prompt=count, 
+            generator=generator
+        )
+        
+        for i, image in enumerate(result.images):
+            # If NSFW Detected
+            if result.nsfw_content_detected[i] == True:
+                outputtext += f"NSFW detected on image {i + 1} of {count}\n"
+
+            name = f"{i+1}_{filename}"
+            image.save(name, 'PNG')
+            files.append(discord.File(fp=name, description=f"Image {i + 1} of {count}"))
+    except RuntimeError as e:
+        if 'out of CUDA out of memory' in str(e):
+            outputtext += f"Out of memory: try another prompt"
+
+    await interaction.followup.send(content=outputtext, files=files)
+
+    for file in files:
+        os.remove(file.filename)
+
+from diffusers import StableDiffusionImg2ImgPipeline
+
 @tree.command(name = "i2i", description="Generate image to image using Stable Diffusion v1.5", guild = discord.Object(id = 1084203391519051786))
-async def self(interaction: discord.Interaction, prompt:str, file: discord.Attachment, count:int = 1, seed:int = None):
-    if not interaction.channel.id == 1084511996139020460:
-        await interaction.response.send_message("You're in the wrong channel!")
-        await interaction.delete_original_response()
+async def self(interaction: discord.Interaction, prompt:str, file: discord.Attachment, negative_prompt:str = None, count:int = 1, seed:int = None):
+    # if not interaction.channel.id == 1084511996139020460:
+    #     await interaction.response.send_message("You're in the wrong channel!")
+    #     await interaction.delete_original_response()
 
     await interaction.response.defer()
 
@@ -132,18 +204,32 @@ async def self(interaction: discord.Interaction, prompt:str, file: discord.Attac
     files.append(discord.File(fp=filename, description="Prompt file"))
 
     try:
-        pipe = StableDiffusionImg2ImgPipeline.from_pretrained(stbdfsPath, torch_dtype=torch.float16).to(device)
+        model_id = stbdfsPath
+        pipe = StableDiffusionImg2ImgPipeline.from_pretrained(model_id, torch_dtype=torch.float16).to(device)
         generator = torch.Generator(device)
+        if not seed:
+            generator.seed()
         outputtext = f"**Text prompt:** {prompt}\n**Count:** {count}\n**Seed:**  {generator.initial_seed()}\n"
 
         with Image.open(filename) as im:
-            result = pipe(prompt=prompt, image=im, num_images_per_prompt=count, generator=generator.manual_seed(int(seed))) if seed else pipe(prompt=prompt, image=im, num_images_per_prompt=count, generator=generator)
+            result = pipe(
+                prompt=prompt, 
+                negative_prompt=negative_prompt, 
+                image=im, 
+                num_images_per_prompt=count, 
+                generator=generator.manual_seed(int(seed))
+            ) if seed else pipe(
+                prompt=prompt, 
+                negative_prompt=negative_prompt, 
+                image=im, 
+                num_images_per_prompt=count, 
+                generator=generator
+            )
         
         for i, image in enumerate(result.images):
             # If NSFW Detected
             if result.nsfw_content_detected[i] == True:
                 outputtext += f"NSFW Detected on image {i + 1} of {count}\n"
-                continue
 
             name = f"{i+1}_{filename}"
             image.save(name, 'PNG')
@@ -165,9 +251,9 @@ import validators
 # Attach audio file and output text
 @tree.command(name = "whisper", description="Generate transcriptions and detect language using OpenAI's Whisper model", guild = discord.Object(id = 1084203391519051786))
 async def self(interaction: discord.Interaction, file:discord.Attachment = None, url:str = None, transcribe:bool = True, prompt:str = "", detect:bool = False):
-    if not interaction.channel.id == 1084408319457894400:
-        await interaction.response.send_message("You're in the wrong channel!")
-        await interaction.delete_original_response()
+    # if not interaction.channel.id == 1084408319457894400:
+    #     await interaction.response.send_message("You're in the wrong channel!")
+    #     await interaction.delete_original_response()
 
     await interaction.response.defer()
 
@@ -240,9 +326,9 @@ import numpy as np
 # Attach image and output text
 @tree.command(name = "clip", description="Attach an image and possible guesses to make AI guess what is in image", guild = discord.Object(id = 1084203391519051786))
 async def self(interaction: discord.Interaction, file:discord.Attachment, prompt:str):
-    if not interaction.channel.id == 1084408335899566201:
-        await interaction.response.send_message("You're in the wrong channel!")
-        await interaction.delete_original_response()
+    # if not interaction.channel.id == 1084408335899566201:
+    #     await interaction.response.send_message("You're in the wrong channel!")
+    #     await interaction.delete_original_response()
 
     await interaction.response.defer()
 
