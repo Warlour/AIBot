@@ -55,6 +55,7 @@ device = 'cuda'
 import torch
 
 '''Stable-diffusion | Image generation'''
+stbdfsPath = r"models/stable-diffusion-v1-5"
 from diffusers import StableDiffusionPipeline
 from diffusers import StableDiffusionImg2ImgPipeline
 
@@ -81,7 +82,7 @@ async def self(interaction: discord.Interaction, prompt:str, count:int = 1, seed
     for _ in range(int(count)):
         print(f"{prompt} | Image nr: {str(_)}")
         try:
-            pipe = StableDiffusionPipeline.from_pretrained("stable-diffusion-v1-5", torch_dtype=torch.float16).to(device)
+            pipe = StableDiffusionPipeline.from_pretrained(stbdfsPath, torch_dtype=torch.float16).to(device)
             result = pipe(prompt=prompt, generator=torch.Generator(device).manual_seed(int(seed))) if seed else pipe(prompt=prompt)
 
             if result['nsfw_content_detected'] == [True]:
@@ -137,7 +138,7 @@ async def self(interaction: discord.Interaction, prompt:str, file: discord.Attac
     for _ in range(int(count)):
         print(f"{prompt} | Image nr: {str(_)}")
         try:
-            pipe = StableDiffusionImg2ImgPipeline.from_pretrained("stable-diffusion-v1-5", torch_dtype=torch.float16).to(device)
+            pipe = StableDiffusionImg2ImgPipeline.from_pretrained(stbdfsPath, torch_dtype=torch.float16).to(device)
             with Image.open(filename) as im:
                 result = pipe(prompt=prompt, image=im, generator=torch.Generator(device).manual_seed(int(seed))) if seed else pipe(prompt=prompt, image=im)
 
