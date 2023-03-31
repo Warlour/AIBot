@@ -74,31 +74,31 @@ async def self(interaction: discord.Interaction, prompt:str, count:int = 1, seed
     if not prompt:
         await interaction.response.followup.send(content="No prompt given")
 
-    filename = f"prompt.png"
+    filename = f"{prompt}.png"
 
     files = []
-    outputtext = f"**Text prompt:** {prompt}\n**Count:** {count}\n**Seed:**  {seed if seed else 'random'}\n"
 
-    for _ in range(int(count)):
-        print(f"{prompt} | Image nr: {str(_)}")
-        try:
-            pipe = StableDiffusionPipeline.from_pretrained(stbdfsPath, torch_dtype=torch.float16).to(device)
-            result = pipe(prompt=prompt, generator=torch.Generator(device).manual_seed(int(seed))) if seed else pipe(prompt=prompt)
+    try:
+        pipe = StableDiffusionPipeline.from_pretrained(stbdfsPath, torch_dtype=torch.float16).to(device)
+        generator = torch.Generator(device)
+        outputtext = f"**Text prompt:** {prompt}\n**Count:** {count}\n**Seed:**  {generator.initial_seed()}\n"
 
-            if result['nsfw_content_detected'] == [True]:
-                raise ValueError('NSFW Detected')
-            
-            result.images[0].save(f"{_+1}_{filename}", 'PNG')
-            files.append(discord.File(fp=f"{_+1}_{filename}", description=f"Image {_ + 1} of {int(count)}"))
-        except ValueError as e:
-            if 'NSFW Detected' in str(e):
-                outputtext += f"NSFW Detected on image {_ + 1} of {int(count)}\n"
-            else:
-                print(e)
-        except RuntimeError as e:
-            if 'out of CUDA out of memory' in str(e):
-                outputtext += f"Out of memory: Image {_ + 1} of {int(count)}, try another image"
-                break
+        result = pipe(prompt=prompt, num_images_per_prompt=count, generator=generator.manual_seed(int(seed))) if seed else pipe(prompt=prompt, num_images_per_prompt=count, generator=generator)
+        if result['nsfw_content_detected'] == [True]:
+            raise ValueError('NSFW Detected')
+        
+        for i, image in enumerate(result.images):
+            # If NSFW Detected
+            if result.nsfw_content_detected[i] == True:
+                outputtext += f"NSFW Detected on image {i + 1} of {count}\n"
+                continue
+
+            name = f"{i+1}_{filename}"
+            image.save(name, 'PNG')
+            files.append(discord.File(fp=name, description=f"Image {i + 1} of {count}"))
+    except RuntimeError as e:
+        if 'out of CUDA out of memory' in str(e):
+            outputtext += f"Out of memory: try another prompt"
 
     await interaction.followup.send(content=outputtext, files=files)
 
@@ -132,30 +132,30 @@ async def self(interaction: discord.Interaction, prompt:str, file: discord.Attac
 
     files = []
     files.append(discord.File(fp=filename, description="Prompt file"))
-    outputtext = f"**Text prompt:** {prompt}\n**Count:** {count}\n**Seed:**  {seed if seed else 'random'}\n"
-    
 
-    for _ in range(int(count)):
-        print(f"{prompt} | Image nr: {str(_)}")
-        try:
-            pipe = StableDiffusionImg2ImgPipeline.from_pretrained(stbdfsPath, torch_dtype=torch.float16).to(device)
-            with Image.open(filename) as im:
-                result = pipe(prompt=prompt, image=im, generator=torch.Generator(device).manual_seed(int(seed))) if seed else pipe(prompt=prompt, image=im)
+    try:
+        pipe = StableDiffusionImg2ImgPipeline.from_pretrained(stbdfsPath, torch_dtype=torch.float16).to(device)
+        generator = torch.Generator(device)
+        outputtext = f"**Text prompt:** {prompt}\n**Count:** {count}\n**Seed:**  {generator.initial_seed()}\n"
 
-            if result['nsfw_content_detected'] == [True]:
-                raise ValueError('NSFW Detected')
-            
-            result.images[0].save(f"{_+1}_{filename}", 'PNG')
-            files.append(discord.File(fp=f"{_+1}_{filename}", description=f"Image {_ + 1} of {int(count)}"))
-        except ValueError as e:
-            if 'NSFW Detected' in str(e):
-                outputtext += f"NSFW Detected on image {_ + 1} of {int(count)}\n"
-            else:
-                print(e)
-        except RuntimeError as e:
-            if 'out of CUDA out of memory' in str(e):
-                outputtext += f"Out of memory: Image {_ + 1} of {int(count)}, try another image"
-                break
+        with Image.open(filename) as im:
+            result = pipe(prompt=prompt, image=im, num_images_per_prompt=count, generator=generator.manual_seed(int(seed))) if seed else pipe(prompt=prompt, image=im, num_images_per_prompt=count, generator=generator)
+        
+        if result['nsfw_content_detected'] == [True]:
+            raise ValueError('NSFW Detected')
+        
+        for i, image in enumerate(result.images):
+            # If NSFW Detected
+            if result.nsfw_content_detected[i] == True:
+                outputtext += f"NSFW Detected on image {i + 1} of {count}\n"
+                continue
+
+            name = f"{i+1}_{filename}"
+            image.save(name, 'PNG')
+            files.append(discord.File(fp=name, description=f"Image {i + 1} of {count}"))
+    except RuntimeError as e:
+        if 'out of CUDA out of memory' in str(e):
+            outputtext += f"Out of memory: try another prompt"
 
     await interaction.followup.send(content=outputtext, files=files)
 
