@@ -181,7 +181,7 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
             if result.nsfw_content_detected[i] == True:
                 outputtext += f"NSFW detected on image {i + 1} of {count}\n"
 
-            name = f"({i+1}){filename}"
+            name = f"{i+1}_{filename}"
             image.save(name, 'PNG')
             files.append(discord.File(fp=name, description=f"Image {i + 1} of {count}"))
     except RuntimeError as e:
