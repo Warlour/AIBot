@@ -1,5 +1,6 @@
 import discord, os, requests, asyncio
 from discord import app_commands
+import openai
 
 discord_token = os.environ["DISCORD_TOKEN_BOT1"]
 
@@ -134,8 +135,6 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
     if not prompt:
         await interaction.followup.send(content="No prompt given", ephemeral=True, silent=True)
 
-    filename = "output.png"
-
     files = []
 
     try:
@@ -152,6 +151,8 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
         outputtext += f"**Guidance scale:** {guidance_scale}\n"
         outputtext += f"**Steps:** {steps}\n"
         outputtext += f"**Size:** {width}x{height}\n"
+
+        filename = f"{seed}_{guidance_scale}-{steps}.png"
 
         if seed:
             generator = generator.manual_seed(seed)
@@ -180,7 +181,7 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
             if result.nsfw_content_detected[i] == True:
                 outputtext += f"NSFW detected on image {i + 1} of {count}\n"
 
-            name = f"{i+1}_{filename}"
+            name = f"({i+1}){filename}"
             image.save(name, 'PNG')
             files.append(discord.File(fp=name, description=f"Image {i + 1} of {count}"))
     except RuntimeError as e:
@@ -476,6 +477,22 @@ async def self(interaction: discord.Interaction, file:discord.Attachment, prompt
         for file in files:
             os.remove(file.filename)
 
+@tree.command(name = "chatgpt", description="Chat Completion with gpt-3.5-turbo", guild = guildObject)
+async def self(interaction: discord.Interaction, prompt:str):
+    if prompt == 'Test':
+        openai.api_key = os.environ["OPENAI_API_KEY"]
+        responses = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages = [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "Who won the world series in 2020?"},
+                {"role": "assistant", "content": "The Los Angeles Dodgers won the World Series in 2020."},
+                {"role": "user", "content": "Where was it played?"}
+            ]
+        )
+
+        print(responses['choices'][0]['message']['content'])
+
 @tree.command(name = "pygmalion", description="Conversational bot set state with character", guild = guildObject)
 async def self(interaction: discord.Interaction, state:bool, character_name:str = 'Discord user', character_description:str = 'The average discord user, likes to be edgy, cringe and sometimes very offensive.'):
     await interaction.response.defer()
@@ -494,7 +511,6 @@ async def self(interaction: discord.Interaction, state:bool, character_name:str 
         status = f"{pygmalionCharacterName} is now **active** with the persona: {pygmalionCharacter}"
     print(status)
     await interaction.followup.send(status, silent=True)
-
 
 from transformers import AutoTokenizer, GPTJForCausalLM
 
