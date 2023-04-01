@@ -80,12 +80,10 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
             generator.seed()
         outputtext = f"**Text prompt:** {prompt}\n**Count:** {count}\n**Seed:**  {generator.initial_seed()}\n"
 
+        if seed:
+            generator = generator.manual_seed(seed)
+
         result = pipe(
-            prompt=prompt, 
-            negative_prompt=negative_prompt, 
-            num_images_per_prompt=count, 
-            generator=generator.manual_seed(int(seed))
-        ) if seed else pipe(
             prompt=prompt, 
             negative_prompt=negative_prompt, 
             num_images_per_prompt=count, 
@@ -151,16 +149,10 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
         outputtext += f"**Steps:** {steps}\n"
         outputtext += f"**Size:** {width}x{height}\n"
 
+        if seed:
+            generator = generator.manual_seed(seed)
+
         result = pipe(
-            prompt=prompt, 
-            negative_prompt=negative_prompt, 
-            guidance_scale=guidance_scale,
-            num_images_per_prompt=count, 
-            num_inference_steps=steps,
-            width=width,
-            height=height,
-            generator=generator.manual_seed(int(seed))
-        ) if seed else pipe(
             prompt=prompt, 
             negative_prompt=negative_prompt, 
             guidance_scale=guidance_scale,
@@ -170,6 +162,14 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
             height=height,
             generator=generator
         )
+        if result:
+            print(f"result: '{result}'")
+            if result.images:
+                print(f"result images: '{result.images}'")
+            else:
+                print("No images")
+        else:
+            print("No result")
         
         for i, image in enumerate(result.images):
             # If NSFW Detected
@@ -219,6 +219,9 @@ async def self(interaction: discord.Interaction, prompt:str, file: discord.Attac
         if not seed:
             generator.seed()
 
+        if seed:
+            generator = generator.manual_seed(seed)
+
         outputtext = f"**Text prompt:** {prompt}\n"
         outputtext += f"**Negative text prompt:** {negative_prompt}\n"
         outputtext += f"**Seed:**  {generator.initial_seed()}\n"
@@ -228,13 +231,6 @@ async def self(interaction: discord.Interaction, prompt:str, file: discord.Attac
 
         with Image.open(filename) as im:
             result = pipe(
-                prompt=prompt, 
-                negative_prompt=negative_prompt, 
-                guidance_scale=guidance_scale,
-                num_inference_steps=steps,
-                image=im,
-                generator=generator.manual_seed(int(seed))
-            ) if seed else pipe(
                 prompt=prompt, 
                 negative_prompt=negative_prompt, 
                 guidance_scale=guidance_scale,
@@ -295,16 +291,11 @@ async def self(interaction: discord.Interaction, prompt:str, file: discord.Attac
         outputtext += f"**Guidance scale:** {guidance_scale}\n"
         outputtext += f"**Steps:** {steps}\n"
 
+        if seed:
+            generator = generator.manual_seed(seed)
 
         with Image.open(filename) as im:
             result = pipe(
-                prompt=prompt, 
-                negative_prompt=negative_prompt, 
-                guidance_scale=guidance_scale,
-                num_inference_steps=steps,
-                image=im,
-                generator=generator.manual_seed(int(seed))
-            ) if seed else pipe(
                 prompt=prompt, 
                 negative_prompt=negative_prompt, 
                 guidance_scale=guidance_scale,
