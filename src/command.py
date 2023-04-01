@@ -220,6 +220,9 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
     generator = torch.Generator(device)
     if not seed:
         generator.seed()
+
+    if seed:
+        generator = generator.manual_seed(seed)
     
     outputtext = f"**Text prompt:** {prompt}\n"
     outputtext += f"**Negative text prompt:** {negative_prompt}\n"
@@ -230,8 +233,7 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
     outputtext += f"**Steps:** {steps}\n"
     outputtext += f"**Size:** {width}x{height}\n"
 
-    if seed:
-        generator = generator.manual_seed(seed)
+    
 
     for i, guidance_scale in enumerate(guidance_scale_list):
         try:
