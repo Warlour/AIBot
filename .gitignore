@@ -1,5 +1,6 @@
 src/test.py
 src/manualjourney.py
+src/setup_dependencies.py
 
 AIBot.cmd
 
