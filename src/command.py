@@ -53,9 +53,6 @@ async def self(interaction: discord.Interaction):
 '''Custom'''
 from logic import *
 
-'''Processing'''
-from io import BytesIO
-
 '''AI general'''
 device = 'cuda'
 import torch
@@ -121,16 +118,23 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
         os.remove(file.filename)
 
 '''OpenJourney'''
-@tree.command(name = "openjourney", description="Generate text to image using OpenJourney", guild = guildObject)
-async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str = None, guidance_scale:float = 7.5, count:int = 1, seed:int = None):
-    # if not interaction.channel.id == 1090728023541682289:
-    #     await interaction.response.send_message("You're in the wrong channel!")
-    #     await interaction.delete_original_response()
+@tree.command(name = "openjhelp", description="Get help with OpenJourney", guild = guildObject)
+async def self(interaction: discord.Interaction):
+    message = "**Prompt:** the text that the model with generate an image with\n"
+    message += "**Negative prompt:** the text that the model with avoid generating an image with\n"
+    message += "**Count:** amount of images to generate\n"
+    message += "**Seed:** the seed to use when generating the image\n"
+    message += "**Guidance scale:** how similar the image is to the prompt\n"
+    message += "**Steps:** More steps = more quality and time to generate\n"
+    message += "**Width and height:** image dimensions\n"
+    await interaction.response.send_message(message)
 
+@tree.command(name = "openjourney", description="Generate text to image using OpenJourney", guild = guildObject)
+async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str = None, guidance_scale:float = 7.5, count:int = 1, seed:int = None, steps:int = 50, width:int = 512, height:int = 512):
     await interaction.response.defer()
 
     if count < 1 or count > 5:
-        await interaction.response.followup.send(content="I cannot send less than 1 or more than 5 pictures!")
+        await interaction.response.followup.send(content="I cannot generate less than 1 or more than 5 pictures!")
         return
     
     if not prompt:
@@ -146,21 +150,35 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
         generator = torch.Generator(device)
         if not seed:
             generator.seed()
-        outputtext = f"**Text prompt:** {prompt}\n**Negative text prompt:** {negative_prompt}\n**Count:** {count}\n**Seed:**  {generator.initial_seed() if not seed else seed}\n"
+        
+        outputtext = f"**Text prompt:** {prompt}\n"
+        outputtext += f"**Negative text prompt:** {negative_prompt}\n"
+        outputtext += f"**Count:** {count}\n"
+        outputtext += f"**Seed:**  {generator.initial_seed() if not seed else seed}\n"
+        outputtext += f"**Guidance scale:** {guidance_scale}\n"
+        outputtext += f"**Steps:** {steps}\n"
+        outputtext += f"**Size:** {width}x{height}\n"
 
         result = pipe(
             prompt=prompt, 
             negative_prompt=negative_prompt, 
             guidance_scale=guidance_scale,
             num_images_per_prompt=count, 
+            num_inference_steps=steps,
+            width=width,
+            height=height,
             generator=generator.manual_seed(int(seed))
         ) if seed else pipe(
             prompt=prompt, 
             negative_prompt=negative_prompt, 
             guidance_scale=guidance_scale,
             num_images_per_prompt=count, 
+            num_inference_steps=steps,
+            width=width,
+            height=height,
             generator=generator
         )
+        print(result.images)
         
         for i, image in enumerate(result.images):
             # If NSFW Detected
