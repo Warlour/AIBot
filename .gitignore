@@ -3,6 +3,4 @@ src/manualjourney.py
 src/manualjourneyincrease.py
 src/setup_dependencies.py
 
-AIBot.cmd
-
 __pycache__
