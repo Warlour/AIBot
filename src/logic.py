@@ -13,7 +13,8 @@ def text_between(string, start, end):
 def is_image(filename):
     try:
         with Image.open(filename) as im:
-            return True
+            pass
+        return True
     except:
         return False
 
