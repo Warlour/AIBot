@@ -195,7 +195,7 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
         os.remove(file.filename)
 
 @tree.command(name = "openjourneywithincrease", description="Generate text to image using OpenJourney", guild = guildObject)
-async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str = None, increase_guidance_by:float = 2.0, count:int = 1, seed:int = None, steps:int = 50, width:int = 512, height:int = 512):
+async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str = None, increase_guidance_by:float = 2.0, guidance_start:float = 7.5, count:int = 1, seed:int = None, steps:int = 50, width:int = 512, height:int = 512):
     await interaction.response.defer()
 
     if increase_guidance_by <= 0.0 or increase_guidance_by > 10.0:
@@ -213,7 +213,7 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
 
     guidance_scale_list = []
     for generation in range(count):
-        guidance_scale_list.append(increase_guidance_by)
+        guidance_scale_list.append(increase_guidance_by*generation+guidance_start)
 
     model_id = r"models/openjourney"
     pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16).to(device)
@@ -224,7 +224,7 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
     outputtext = f"**Text prompt:** {prompt}\n"
     outputtext += f"**Negative text prompt:** {negative_prompt}\n"
     outputtext += f"**Seed:**  {generator.initial_seed() if not seed else seed}\n"
-    outputtext += f"**Guidance scale start:** {increase_guidance_by}\n"
+    outputtext += f"**Guidance scale start:** {guidance_start}\n"
     outputtext += f"**Guidance scale increase:** {increase_guidance_by}\n"
     outputtext += f"**Count:** {count}\n"
     outputtext += f"**Steps:** {steps}\n"
