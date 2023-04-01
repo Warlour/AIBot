@@ -28,19 +28,16 @@ pygmalionCharacter = None
 
 @tree.command(name = "test", description = "Used for testing purposes", guild = guildObject)
 async def self(interaction: discord.Interaction):
-    #await interaction.response.defer()
-    modal = discord.ui.Modal(title="Create ...", timeout=None)
+    await interaction.response.defer()
+    await interaction.followup.send(content="Testing", ephemeral=True)
 
-    urlInput = discord.ui.TextInput(label="URL", placeholder="Insert YouTube link here!", required=False)
-    modal.add_item(urlInput)
-    
-    # transcribeOpt = discord.SelectOption(label="Transcribe", description="Transcribes the audio to text in English", default=True)
-    # detectOpt = discord.SelectOption(label="Detect Language", description="Detects the language spoken in the audio", default=False)
-    # options = [transcribeOpt, detectOpt]
-    # optSelect = discord.ui.Select(min_values=1, max_values=1, options=options)
-    # modal.add_item(optSelect)
+@tree.command(name = "deletelastmessages", description = "Delete the x last messages", guild = guildObject)
+async def self(interaction: discord.Interaction, count:int = 1):
+    await interaction.response.defer()
+    messages = await interaction.channel.history(limit=count)
 
-    await interaction.response.send_modal(modal)
+    for msg in messages:
+        pass
 
 @tree.command(name = "clear", description = "Clear the current channel", guild = guildObject)
 async def self(interaction: discord.Interaction):
@@ -48,7 +45,7 @@ async def self(interaction: discord.Interaction):
     if interaction.user.id == 152917625700089856:
         await interaction.channel.purge()
     else:
-        interaction.response.send_message(content="You do not have permissions to do this!")
+        interaction.followup.send(content="You do not have permissions to do this!", delete_after=5, ephemeral=True)
 
 '''Custom'''
 from logic import *
@@ -63,18 +60,13 @@ from diffusers import StableDiffusionPipeline
 
 @tree.command(name = "t2i", description="Generate text to image using Stable Diffusion v1.5", guild = guildObject)
 async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str = None, count:int = 1, seed:int = None):
-    # if not interaction.channel.id == 1090783286793621614:
-    #     await interaction.response.send_message("You're in the wrong channel!")
-    #     await interaction.delete_original_response()
-
     await interaction.response.defer()
-
     if count < 1 or count > 5:
-        await interaction.response.followup.send(content="I cannot send less than 1 or more than 5 pictures!")
+        await interaction.followup.send(content="I cannot send less than 1 or more than 5 pictures!", ephemeral=True)
         return
     
     if not prompt:
-        await interaction.response.followup.send(content="No prompt given")
+        await interaction.followup.send(content="No prompt given", ephemeral=True)
 
     filename = f"prompt.png"
 
@@ -127,18 +119,18 @@ async def self(interaction: discord.Interaction):
     message += "**Guidance scale:** how similar the image is to the prompt\n"
     message += "**Steps:** More steps = more quality and time to generate\n"
     message += "**Width and height:** image dimensions\n"
-    await interaction.response.send_message(message)
+    await interaction.followup.send(message, ephemeral=True)
 
 @tree.command(name = "openjourney", description="Generate text to image using OpenJourney", guild = guildObject)
 async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str = None, guidance_scale:float = 7.5, count:int = 1, seed:int = None, steps:int = 50, width:int = 512, height:int = 512):
     await interaction.response.defer()
-
+    
     if count < 1 or count > 5:
-        await interaction.response.followup.send(content="I cannot generate less than 1 or more than 5 pictures!")
+        await interaction.followup.send(content="I cannot generate less than 1 or more than 5 pictures!", ephemeral=True)
         return
     
     if not prompt:
-        await interaction.response.followup.send(content="No prompt given")
+        await interaction.followup.send(content="No prompt given", ephemeral=True)
 
     filename = "output.png"
 
@@ -201,21 +193,17 @@ from diffusers import StableDiffusionImg2ImgPipeline
 
 @tree.command(name = "i2i", description="Generate image to image using Stable Diffusion v1.5", guild = guildObject)
 async def self(interaction: discord.Interaction, prompt:str, file: discord.Attachment, negative_prompt:str = None, count:int = 1, seed:int = None):
-    # if not interaction.channel.id == 1084511996139020460:
-    #     await interaction.response.send_message("You're in the wrong channel!")
-    #     await interaction.delete_original_response()
-
     await interaction.response.defer()
 
     if count < 1 or count > 5:
-        await interaction.followup.send(content="I cannot send less than 1 or more than 5 pictures!")
+        await interaction.followup.send(content="I cannot send less than 1 or more than 5 pictures!", ephemeral=True)
         return
     
     if not prompt:
-        await interaction.followup.send(content="No prompt given")
+        await interaction.followup.send(content="No prompt given", ephemeral=True)
     
     if not file or not file.filename.endswith(('.png', '.jpg', '.webp', 'jpeg')):
-        await interaction.followup.send(content="Invalid file extension")
+        await interaction.followup.send(content="Invalid file extension", ephemeral=True)
         return
     
     r = requests.get(file.url)
@@ -271,49 +259,50 @@ async def self(interaction: discord.Interaction, prompt:str, file: discord.Attac
 import whisper
 
 import validators
+from pytube import YouTube
 
 # Attach audio file and output text
 @tree.command(name = "whisper", description="Generate transcriptions and detect language using OpenAI's Whisper model", guild = guildObject)
 async def self(interaction: discord.Interaction, file:discord.Attachment = None, url:str = None, transcribe:bool = True, prompt:str = "", detect:bool = False):
-    # if not interaction.channel.id == 1084408319457894400:
-    #     await interaction.response.send_message("You're in the wrong channel!")
-    #     await interaction.delete_original_response()
-
     await interaction.response.defer()
-
+    
     if not transcribe and not detect:
-        await interaction.followup.send(content="No operation given; use transcribe and/or detect!")
+        await interaction.followup.send(content="No operation given; use transcribe and/or detect!", ephemeral=True)
         return
     
     if not file and not url:
-        await interaction.followup.send(content="No file or url attached")
+        await interaction.followup.send(content="No file or url attached", ephemeral=True)
     
     if file and url:
-        await interaction.followup.send(content="You can only add a file __or__ an url!")
+        await interaction.followup.send(content="You can only add a file __or__ an url!", ephemeral=True)
 
     if file:
         if not file.filename.endswith(('.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.wav', '.webm')):
-            await interaction.followup.send(content="Invalid file extension")
+            await interaction.followup.send(content="Invalid file extension", ephemeral=True)
             return
         
-        print(f"Downloading {file.filename}")
-        r = requests.get(file.url)
-        with open(file.filename, 'wb') as f:
-            f.write(r.content)
-        
         filename = file.filename
+        print(f"Downloading {filename}")
+        r = requests.get(file.url)
+        with open(filename, 'wb') as f:
+            f.write(r.content)
+
     elif url:
         if (validators.url(url)):
-            filename = ytdownload(url)
-            print(filename)
+            output = f"<{url}>\n"
+            filename = "yt_download.mp3"
+            YouTube(url).streams.filter(only_audio=True).first().download(filename=filename)
+            if not filename:
+                await interaction.followup.send(content="Could not find file, contact admin", ephemeral=True)
+                return
+            print(f"Downloaded {filename}")
         else:
-            await interaction.followup.send(content="Invalid url!")
+            await interaction.followup.send(content="Invalid url!", ephemeral=True)
             return
 
     model_name = "medium"
     model = whisper.load_model(model_name, device=device)
 
-    output = ""
     if detect:
         audio = whisper.load_audio(filename)
         audio = whisper.pad_or_trim(audio)
@@ -331,9 +320,10 @@ async def self(interaction: discord.Interaction, file:discord.Attachment = None,
     if result['text']:
         inputPrompt = discord.File(fp=filename)
 
+        print(result['text'].strip())
         with open(f"transcription_{filename}.txt", "w") as f:
             f.write(result['text'].strip())
-        outputfile = discord.File(fp=f"transcription_{filename.rsplit(sep='.', maxsplit=1)}.txt")
+        outputfile = discord.File(fp=f"transcription_{filename}.txt")
 
         files = [inputPrompt, outputfile]
         await interaction.followup.send(content=output, files=files)
@@ -350,10 +340,6 @@ import numpy as np
 # Attach image and output text
 @tree.command(name = "clip", description="Attach an image and possible guesses to make AI guess what is in image", guild = guildObject)
 async def self(interaction: discord.Interaction, file:discord.Attachment, prompt:str):
-    # if not interaction.channel.id == 1084408335899566201:
-    #     await interaction.response.send_message("You're in the wrong channel!")
-    #     await interaction.delete_original_response()
-
     await interaction.response.defer()
 
     if not file:
