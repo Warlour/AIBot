@@ -142,21 +142,18 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
         model_id = r"models/openjourney"
         pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16).to(device)
         generator = torch.Generator(device)
-        if not seed:
-            generator.seed()
+
+        generator = generator.manual_seed(seed) if seed else generator.manual_seed(generator.seed())
         
         outputtext = f"**Text prompt:** {prompt}\n"
         outputtext += f"**Negative text prompt:** {negative_prompt}\n"
         outputtext += f"**Count:** {count}\n"
-        outputtext += f"**Seed:**  {generator.initial_seed() if not seed else seed}\n"
+        outputtext += f"**Seed:**  {generator.initial_seed()}\n"
         outputtext += f"**Guidance scale:** {guidance_scale}\n"
         outputtext += f"**Steps:** {steps}\n"
         outputtext += f"**Size:** {width}x{height}\n"
 
-        filename = f"{seed}_{guidance_scale}-{steps}.png"
-
-        if seed:
-            generator = generator.manual_seed(seed)
+        filename = f"{generator.initial_seed()}_{guidance_scale}-{steps}.png"
 
         result = pipe(
             prompt=prompt, 
@@ -168,14 +165,6 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
             height=height,
             generator=generator
         )
-        if result:
-            print(f"result: '{result}'")
-            if result.images:
-                print(f"result images: '{result.images}'")
-            else:
-                print("No images")
-        else:
-            print("No result")
         
         for i, image in enumerate(result.images):
             # If NSFW Detected
@@ -202,8 +191,8 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
         await interaction.followup.send(content="Guidance should not be lower or equal to zero. And it should not be higher than 10", ephemeral=True, silent=True)
         return
     
-    if count < 1 or count > 5:
-        await interaction.followup.send(content="I cannot generate less than 1 or more than 5 pictures!", ephemeral=True, silent=True)
+    if count < 1:
+        await interaction.followup.send(content="I cannot generate less than 1 image!", ephemeral=True, silent=True)
         return
     
     if not prompt:
@@ -218,26 +207,21 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
     model_id = r"models/openjourney"
     pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16).to(device)
     generator = torch.Generator(device)
-    if not seed:
-        generator.seed()
 
-    if seed:
-        generator = generator.manual_seed(seed)
+    generator = generator.manual_seed(seed) if seed else generator.manual_seed(generator.seed())
     
     outputtext = f"**Text prompt:** {prompt}\n"
     outputtext += f"**Negative text prompt:** {negative_prompt}\n"
-    outputtext += f"**Seed:**  {generator.initial_seed() if not seed else seed}\n"
+    outputtext += f"**Seed:**  {generator.initial_seed()}\n"
     outputtext += f"**Guidance scale start:** {guidance_start}\n"
     outputtext += f"**Guidance scale increase:** {increase_guidance_by}\n"
     outputtext += f"**Count:** {count}\n"
     outputtext += f"**Steps:** {steps}\n"
     outputtext += f"**Size:** {width}x{height}\n"
 
-    
-
     for i, guidance_scale in enumerate(guidance_scale_list):
         try:
-            filename = f"{seed}_{guidance_scale}-{steps}.png"
+            filename = f"{generator.initial_seed()}_{guidance_scale}-{steps}.png"
 
             result = pipe(
                 prompt=prompt, 
