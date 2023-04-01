@@ -115,6 +115,7 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
 '''OpenJourney'''
 @tree.command(name = "openjhelp", description="Get help with OpenJourney", guild = guildObject)
 async def self(interaction: discord.Interaction):
+    await interaction.response.defer()
     message = "**Prompt:** the text that the model with generate an image with\n"
     message += "**Negative prompt:** the text that the model with avoid generating an image with\n"
     message += "**Count:** amount of images to generate\n"
@@ -183,7 +184,7 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
 
             name = f"{i+1}_{filename}"
             image.save(name, 'PNG')
-            files.append(discord.File(fp=name, description=f"Image {i + 1} of {count}"))
+            files.append(discord.File(fp=name, description=f"Prompt: {prompt}\nNegative prompt: {negative_prompt}"))
     except RuntimeError as e:
         if 'out of CUDA out of memory' in str(e):
             outputtext += f"Out of memory: try another prompt"
@@ -192,6 +193,77 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
 
     for file in files:
         os.remove(file.filename)
+
+@tree.command(name = "openjourneywithincrease", description="Generate text to image using OpenJourney", guild = guildObject)
+async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str = None, increase_guidance_by:float = 2.0, count:int = 1, seed:int = None, steps:int = 50, width:int = 512, height:int = 512):
+    await interaction.response.defer()
+
+    if increase_guidance_by <= 0.0 or increase_guidance_by > 10.0:
+        await interaction.followup.send(content="Guidance should not be lower or equal to zero. And it should not be higher than 10", ephemeral=True, silent=True)
+        return
+    
+    if count < 1 or count > 5:
+        await interaction.followup.send(content="I cannot generate less than 1 or more than 5 pictures!", ephemeral=True, silent=True)
+        return
+    
+    if not prompt:
+        await interaction.followup.send(content="No prompt given", ephemeral=True, silent=True)
+
+    files = []
+
+    guidance_scale_list = []
+    for generation in range(count):
+        guidance_scale_list.append(increase_guidance_by)
+
+    model_id = r"models/openjourney"
+    pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16).to(device)
+    generator = torch.Generator(device)
+    if not seed:
+        generator.seed()
+    
+    outputtext = f"**Text prompt:** {prompt}\n"
+    outputtext += f"**Negative text prompt:** {negative_prompt}\n"
+    outputtext += f"**Seed:**  {generator.initial_seed() if not seed else seed}\n"
+    outputtext += f"**Guidance scale start:** {increase_guidance_by}\n"
+    outputtext += f"**Guidance scale increase:** {increase_guidance_by}\n"
+    outputtext += f"**Count:** {count}\n"
+    outputtext += f"**Steps:** {steps}\n"
+    outputtext += f"**Size:** {width}x{height}\n"
+
+    if seed:
+        generator = generator.manual_seed(seed)
+
+    for i, guidance_scale in enumerate(guidance_scale_list):
+        try:
+            filename = f"{seed}_{guidance_scale}-{steps}.png"
+
+            result = pipe(
+                prompt=prompt, 
+                negative_prompt=negative_prompt, 
+                guidance_scale=guidance_scale,
+                num_inference_steps=steps,
+                width=width,
+                height=height,
+                generator=generator
+            )
+            
+            for im, image in enumerate(result.images):
+                # If NSFW Detected
+                if result.nsfw_content_detected[im] == True:
+                    outputtext += f"NSFW detected on image {i + 1} of {count}\n"
+
+                iter_filename = f"{i+1}_{filename}"
+                image.save(iter_filename, 'PNG')
+                files.append(discord.File(fp=iter_filename, description=f"Prompt: {prompt}\nNegative prompt: {negative_prompt}"))
+        except RuntimeError as e:
+            if 'out of CUDA out of memory' in str(e):
+                outputtext += f"Out of memory: try another prompt"
+
+    await interaction.followup.send(content=outputtext, files=files, silent=True)
+
+    for file in files:
+        os.remove(file.filename)
+
 
 from diffusers import StableDiffusionImg2ImgPipeline
 
