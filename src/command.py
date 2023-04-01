@@ -3,10 +3,12 @@ from discord import app_commands
 
 discord_token = os.environ["DISCORD_TOKEN_BOT1"]
 
+guildID = 1084203391519051786
+
 class aclient(discord.Client):
     def __init__(self):
         intents = discord.Intents.default()
-        intents.message_content = True
+        intents.all()
         super().__init__(intents=intents)
         self.synced = False
     
@@ -15,12 +17,17 @@ class aclient(discord.Client):
         if not self.synced:
             await tree.sync(guild = discord.Object(id = 1084203391519051786))
             self.synced = True
+
         print(f"We have logged in as {self.user}.")
 
 client = aclient()
 tree = app_commands.CommandTree(client)
 
-@tree.command(name = "test", description = "Used for testing purposes", guild = discord.Object(id = 1084203391519051786))
+# Default values
+pygmalionState = False
+pygmalionCharacter = None
+
+@tree.command(name = "test", description = "Used for testing purposes", guild = discord.Object(id = guildID))
 async def self(interaction: discord.Interaction):
     #await interaction.response.defer()
     modal = discord.ui.Modal(title="Create ...", timeout=None)
@@ -36,7 +43,7 @@ async def self(interaction: discord.Interaction):
 
     await interaction.response.send_modal(modal)
 
-@tree.command(name = "clear", description = "Clear the current channel", guild = discord.Object(id = 1084203391519051786))
+@tree.command(name = "clear", description = "Clear the current channel", guild = discord.Object(id = guildID))
 async def self(interaction: discord.Interaction):
     await interaction.response.defer()
     if interaction.user.id == 152917625700089856:
@@ -58,7 +65,7 @@ import torch
 stbdfsPath = r"models/stable-diffusion-v1-5"
 from diffusers import StableDiffusionPipeline
 
-@tree.command(name = "t2i", description="Generate text to image using Stable Diffusion v1.5", guild = discord.Object(id = 1084203391519051786))
+@tree.command(name = "t2i", description="Generate text to image using Stable Diffusion v1.5", guild = discord.Object(id = guildID))
 async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str = None, count:int = 1, seed:int = None):
     # if not interaction.channel.id == 1090783286793621614:
     #     await interaction.response.send_message("You're in the wrong channel!")
@@ -115,7 +122,7 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
         os.remove(file.filename)
 
 '''OpenJourney'''
-@tree.command(name = "openjourney", description="Generate text to image using OpenJourney", guild = discord.Object(id = 1084203391519051786))
+@tree.command(name = "openjourney", description="Generate text to image using OpenJourney", guild = discord.Object(id = guildID))
 async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str = None, guidance_scale:float = 7.5, count:int = 1, seed:int = None):
     # if not interaction.channel.id == 1090728023541682289:
     #     await interaction.response.send_message("You're in the wrong channel!")
@@ -175,7 +182,7 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
 
 from diffusers import StableDiffusionImg2ImgPipeline
 
-@tree.command(name = "i2i", description="Generate image to image using Stable Diffusion v1.5", guild = discord.Object(id = 1084203391519051786))
+@tree.command(name = "i2i", description="Generate image to image using Stable Diffusion v1.5", guild = discord.Object(id = guildID))
 async def self(interaction: discord.Interaction, prompt:str, file: discord.Attachment, negative_prompt:str = None, count:int = 1, seed:int = None):
     # if not interaction.channel.id == 1084511996139020460:
     #     await interaction.response.send_message("You're in the wrong channel!")
@@ -249,7 +256,7 @@ import whisper
 import validators
 
 # Attach audio file and output text
-@tree.command(name = "whisper", description="Generate transcriptions and detect language using OpenAI's Whisper model", guild = discord.Object(id = 1084203391519051786))
+@tree.command(name = "whisper", description="Generate transcriptions and detect language using OpenAI's Whisper model", guild = discord.Object(id = guildID))
 async def self(interaction: discord.Interaction, file:discord.Attachment = None, url:str = None, transcribe:bool = True, prompt:str = "", detect:bool = False):
     # if not interaction.channel.id == 1084408319457894400:
     #     await interaction.response.send_message("You're in the wrong channel!")
@@ -324,7 +331,7 @@ import clip
 import numpy as np
 
 # Attach image and output text
-@tree.command(name = "clip", description="Attach an image and possible guesses to make AI guess what is in image", guild = discord.Object(id = 1084203391519051786))
+@tree.command(name = "clip", description="Attach an image and possible guesses to make AI guess what is in image", guild = discord.Object(id = guildID))
 async def self(interaction: discord.Interaction, file:discord.Attachment, prompt:str):
     # if not interaction.channel.id == 1084408335899566201:
     #     await interaction.response.send_message("You're in the wrong channel!")
@@ -396,5 +403,44 @@ async def self(interaction: discord.Interaction, file:discord.Attachment, prompt
         # Remove files
         for file in files:
             os.remove(file.filename)
+
+@tree.command(name = "pygmalion", description="Conversational bot set state with character", guild = discord.Object(id = guildID))
+async def self(interaction: discord.Interaction, state:bool, character:str = None):
+    await interaction.response.defer()
+    if not interaction.channel.id == 1091464570943574076:
+        interaction.followup.send(content=f"Due to it being a conversational bot, this bot is only available in the {client.get_channel(1091464570943574076)} channel.")
+        return
+    pygmalionState = state
+    pygmalionCharacter = character
+
+from transformers import AutoTokenizer, GPTJForCausalLM
+
+@client.event
+async def on_message(ctx: discord.Message):
+    if ctx.channel.id == 1091464570943574076:
+        if pygmalionState:
+            if not pygmalionCharacter:
+                await ctx.channel.send(content="No character to play!")
+                return
+
+            try:
+                model_id = r"models/pygmalion-6b"
+                tokenizer = AutoTokenizer.from_pretrained(model_id)
+                model = GPTJForCausalLM.from_pretrained(model_id)
+
+                messages = await ctx.channel.history(limit=200)
+                print(messages)
+
+                history = []
+                for msg in messages:
+                    pass
+
+            except:
+                pass
+        # Testing
+        if True:
+            messages = ctx.channel.history(limit=200)
+            for message in messages:
+                print(message)
 
 client.run(discord_token)
