@@ -58,10 +58,12 @@ import torch
 '''Stable-diffusion | Image generation'''
 stbdfsPath = r"models/stable-diffusion-v1-5"
 from diffusers import StableDiffusionPipeline
+from diffusers import logging as difflog
 
-from transformers import logging
+from transformers import logging as translog
 
-logging.set_verbosity_error()
+translog.set_verbosity_error()
+difflog.set_verbosity_error()
 
 @tree.command(name = "t2i", description="Generate text to image using Stable Diffusion v1.5", guild = guildObject)
 async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str = None, count:int = 1, seed:int = None):
@@ -320,12 +322,9 @@ async def self(interaction: discord.Interaction, prompt:str, file: discord.Attac
         os.remove(file.filename)
 
 @tree.command(name = "openjourneyimg", description="Generate image to image using OpenJourney", guild = guildObject)
-async def self(interaction: discord.Interaction, prompt:str, file: discord.Attachment, negative_prompt:str = None, seed:int = None, guidance_scale:float = 7.5, steps:int = 50):
+async def self(interaction: discord.Interaction, file: discord.Attachment, prompt:str = "", negative_prompt:str = None, seed:int = None, guidance_scale:float = 7.5, steps:int = 50):
     await interaction.response.defer()
-    
-    if not prompt:
-        await interaction.followup.send(content="No prompt given", ephemeral=True, silent=True)
-    
+
     if not file or not file.filename.endswith(('.png', '.jpg', '.webp', 'jpeg')):
         await interaction.followup.send(content="Invalid file extension", ephemeral=True, silent=True)
         return
@@ -338,8 +337,6 @@ async def self(interaction: discord.Interaction, prompt:str, file: discord.Attac
 
     files = []
     files.append(discord.File(fp=filename, description="Prompt file"))
-
-    
 
     try:
         model_id = r"models/openjourney"
