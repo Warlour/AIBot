@@ -2,5 +2,6 @@ src/test.py
 src/manualjourney.py
 src/manualjourneyincrease.py
 src/setup_dependencies.py
+imagestoGIF
 
 __pycache__
