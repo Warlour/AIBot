@@ -186,7 +186,7 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
         os.remove(file.filename)
 
 @tree.command(name = "openjourneywithincrease", description="Generate text to image using OpenJourney", guild = guildObject)
-async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str = None, increase_guidance_by:float = 2.0, guidance_start:float = 0.0, count:int = 1, seed:int = None, steps:int = 50, width:int = 512, height:int = 512):
+async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str = None, increase_guidance_by:float = 2.0, guidance_start:float = 0.0, count:int = 1, seed:int = None, steps:int = 50, width:int = 512, height:int = 512, creategif:bool = False):
     await interaction.response.defer()
 
     if increase_guidance_by <= 0.0 or increase_guidance_by > 10.0:
@@ -249,7 +249,7 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
                 if result.nsfw_content_detected[im] == True:
                     outputtext += f"NSFW detected on image {i + 1} of {count}\n"
 
-                iter_filename = f"{i+1}_{filename}"
+                iter_filename = f"imagestoGIF/{i+1}_{filename}"
                 image.save(iter_filename, 'PNG')
                 files.append(discord.File(fp=iter_filename, description=f"Prompt: {prompt}\nNegative prompt: {negative_prompt}"))
         except RuntimeError as e:
@@ -258,9 +258,15 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
 
     await interaction.followup.send(content=outputtext, files=files, silent=True)
 
-    for file in files:
-        os.remove(file.filename)
+    if creategif:
+        output_gif = create_gif(find_image_paths(r'imagestoGIF'), r'imagestoGIF/output.gif', 1)
+        gif_file = discord.File(fp=output_gif, description=f"GIF of output images")
+        files.append(gif_file)
 
+        await interaction.followup.send(content='Created GIF from images', file=gif_file, silent=True)
+
+    for file in files:
+        os.remove(f"imagestoGIF/{file.filename}")
 
 from diffusers import StableDiffusionImg2ImgPipeline
 
