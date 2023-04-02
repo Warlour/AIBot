@@ -240,6 +240,7 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
             pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16).to(device)
             
             filename = f"{generator.initial_seed()}_{guidance_scale}-{steps}.png"
+            iter_filename = f"imagestoGIF/{i+1}_{filename}"
             print(f"Generating: {filename}")
 
             result = pipe(
@@ -257,7 +258,6 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
                 if result.nsfw_content_detected[im] == True:
                     outputtext += f"NSFW detected on image {i + 1} of {count}\n"
 
-                iter_filename = f"imagestoGIF/{i+1}_{filename}"
                 image.save(iter_filename, 'PNG')
                 files.append(discord.File(fp=iter_filename, description=f"Prompt: {prompt}\nNegative prompt: {negative_prompt}"))
         except RuntimeError as e:
