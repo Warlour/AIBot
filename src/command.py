@@ -70,8 +70,8 @@ difflog.set_verbosity_error()
 @tree.command(name = "t2i", description="Generate text to image using Stable Diffusion v1.5", guild = guildObject)
 async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str = None, count:int = 1, seed:int = None):
     await interaction.response.defer()
-    if count < 1 or count > 5:
-        await interaction.followup.send(content="I cannot send less than 1 or more than 5 pictures!", ephemeral=True, silent=True)
+    if count < 1 or count > 10:
+        await interaction.followup.send(content="I cannot send less than 1 or more than 10 pictures!", ephemeral=True, silent=True)
         return
     
     if not prompt:
@@ -137,8 +137,8 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
         await interaction.followup.send(content=f"Height and Width have to be divisible by 8 but are {height} and {width}\nFor height subtract: {height % 8} (change to {height-(height % 8)})\nFor width subtract: {width % 8} (change to {width-(width % 8)})", silent=True, ephemeral=True)
         return
 
-    if count < 1 or count > 5:
-        await interaction.followup.send(content="I cannot generate less than 1 or more than 5 pictures!", ephemeral=True, silent=True)
+    if count < 1 or count > 10:
+        await interaction.followup.send(content="I cannot generate less than 1 or more than 10 pictures!", ephemeral=True, silent=True)
         return
     
     if not prompt:
