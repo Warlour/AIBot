@@ -131,6 +131,10 @@ async def self(interaction: discord.Interaction):
 async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str = None, guidance_scale:float = 7.5, count:int = 1, seed:int = None, steps:int = 50, width:int = 512, height:int = 512):
     await interaction.response.defer()
     
+    if width % 8 != 0 and height % 8 != 0:
+        await interaction.followup.send(content=f"Height and Width have to be divisible by 8 but are {height} and {width}\nFor height subtract: {height % 8} (change to {height-(height % 8)})\nFor width subtract: {width % 8} (change to {width-(width % 8)})", silent=True, ephemeral=True)
+        return
+
     if count < 1 or count > 5:
         await interaction.followup.send(content="I cannot generate less than 1 or more than 5 pictures!", ephemeral=True, silent=True)
         return
@@ -188,6 +192,10 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
 @tree.command(name = "openjourneywithincrease", description="Generate text to image using OpenJourney", guild = guildObject)
 async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str = None, increase_guidance_by:float = 2.0, guidance_start:float = 0.0, count:int = 1, seed:int = None, steps:int = 50, width:int = 512, height:int = 512, creategif:bool = False):
     await interaction.response.defer()
+
+    if width % 8 != 0 and height % 8 != 0:
+        await interaction.followup.send(content=f"Height and Width have to be divisible by 8 but are {height} and {width}\nFor height subtract: {height % 8} (change to {height-(height % 8)})\nFor width subtract: {width % 8} (change to {width-(width % 8)})", silent=True, ephemeral=True)
+        return
 
     if increase_guidance_by <= 0.0 or increase_guidance_by > 10.0:
         await interaction.followup.send(content="Guidance should not be lower or equal to zero. And it should not be higher than 10", ephemeral=True, silent=True)
@@ -255,10 +263,18 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
         except RuntimeError as e:
             if 'out of CUDA out of memory' in str(e):
                 outputtext += f"Out of memory: try another prompt"
+                break
+        except discord.app_commands.errors.CommandInvokeError as e:
+            print(e)
+            break
 
-    await interaction.followup.send(content=outputtext, files=files, silent=True)
+    if files:
+        await interaction.followup.send(content=outputtext, files=files, silent=True)
+    # If error occured
+    else:
+        await interaction.followup.send(content=outputtext, silent=True, ephemeral=True)
 
-    if creategif:
+    if creategif and files:
         output_gif = create_gif(find_image_paths(r'imagestoGIF'), r'imagestoGIF/output.gif', 1)
         gif_file = discord.File(fp=output_gif, description=f"GIF of output images")
         files.append(gif_file)
