@@ -35,10 +35,12 @@ async def self(interaction: discord.Interaction):
 @tree.command(name = "deletelastmessages", description = "Delete the x last messages", guild = guildObject)
 async def self(interaction: discord.Interaction, count:int = 1):
     await interaction.response.defer()
-    messages = await interaction.channel.history(limit=count)
-
-    for msg in messages:
-        pass
+    messages_list = []
+    
+    async for message in interaction.channel.history(limit=count+1):
+        if message.author.id != client.user.id:
+            await message.delete()
+    interaction.followup.send(content=f"Deleted last {count} messages.", ephemeral=True, silent=True)
 
 @tree.command(name = "clear", description = "Clear the current channel", guild = guildObject)
 async def self(interaction: discord.Interaction):
