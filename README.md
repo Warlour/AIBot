@@ -22,7 +22,7 @@ Specifically the command was:
 
 ![Orange Logo](https://github.com/Warlour/AIBot/blob/assets/output1.png?raw=true)
 
-The program then creates a gif from the generated images and sends in a separates message:
+The program then creates a gif from the generated images and sends in a separate message:
 
 ![Orange Logo GIF](https://github.com/Warlour/AIBot/blob/assets/output1.gif?raw=true)
 
@@ -31,7 +31,7 @@ The program then creates a gif from the generated images and sends in a separate
 
 ![Isometric cyberpunk bedroom](https://github.com/Warlour/AIBot/blob/assets/output2.png?raw=true)
 
-The program then creates a gif from the generated images and sends in a separates message:
+The program then creates a gif from the generated images and sends in a separate message:
 
 ![Isometric cyberpunk bedroom GIF](https://github.com/Warlour/AIBot/blob/assets/output2.gif?raw=true)
 
