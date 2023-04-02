@@ -186,19 +186,24 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
         os.remove(file.filename)
 
 @tree.command(name = "openjourneywithincrease", description="Generate text to image using OpenJourney", guild = guildObject)
-async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str = None, increase_guidance_by:float = 2.0, guidance_start:float = 7.5, count:int = 1, seed:int = None, steps:int = 50, width:int = 512, height:int = 512):
+async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str = None, increase_guidance_by:float = 2.0, guidance_start:float = 0.0, count:int = 1, seed:int = None, steps:int = 50, width:int = 512, height:int = 512):
     await interaction.response.defer()
 
     if increase_guidance_by <= 0.0 or increase_guidance_by > 10.0:
         await interaction.followup.send(content="Guidance should not be lower or equal to zero. And it should not be higher than 10", ephemeral=True, silent=True)
         return
     
+    if count > 10:
+        await interaction.followup.send(content="Discord cannot send more than 10 images at once!", ephemeral=True, silent=True)
+        return
+
     if count < 1:
         await interaction.followup.send(content="I cannot generate less than 1 image!", ephemeral=True, silent=True)
         return
     
     if not prompt:
         await interaction.followup.send(content="No prompt given", ephemeral=True, silent=True)
+        return
 
     files = []
 
@@ -206,15 +211,13 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
     for generation in range(count):
         guidance_scale_list.append(increase_guidance_by*generation+guidance_start)
 
-    model_id = r"models/openjourney"
-    pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16).to(device)
     generator = torch.Generator(device)
+    if not seed:
+        seed = generator.seed()
 
-    generator = generator.manual_seed(seed) if seed else generator.manual_seed(generator.seed())
-    
     outputtext = f"**Text prompt:** {prompt}\n"
     outputtext += f"**Negative text prompt:** {negative_prompt}\n"
-    outputtext += f"**Seed:**  {generator.initial_seed()}\n"
+    outputtext += f"**Seed:**  {seed}\n"
     outputtext += f"**Guidance scale start:** {guidance_start}\n"
     outputtext += f"**Guidance scale increase:** {increase_guidance_by}\n"
     outputtext += f"**Count:** {count}\n"
@@ -223,7 +226,13 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
 
     for i, guidance_scale in enumerate(guidance_scale_list):
         try:
+            generator = generator.manual_seed(seed)
+
+            model_id = r"models/openjourney"
+            pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16).to(device)
+            
             filename = f"{generator.initial_seed()}_{guidance_scale}-{steps}.png"
+            print(f"Generating: {filename}")
 
             result = pipe(
                 prompt=prompt, 
