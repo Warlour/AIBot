@@ -60,7 +60,7 @@ Run the following: `python3.9 -m pip install discord os requests openai torch di
 2. Change `python.exe` to `python3.9.exe`  
 	
 
-Still not working?:  
+#### Still not working?:  
 1. Copy `%userprofile%\AppData\Local\Programs\Python\Python39` (or your personal path to the Python folder)  
 2. Press `Win+R`, and type the following: `rundll32.exe sysdm.cpl,EditEnvironmentVariables`  
     2a. While you're here, you can click New and insert  
