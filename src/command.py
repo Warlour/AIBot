@@ -202,8 +202,7 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
         return
     
     if count > 10:
-        await interaction.followup.send(content="Discord cannot send more than 10 images at once!", ephemeral=True, silent=True)
-        return
+        await interaction.followup.send(content="Discord can only send the first 10 images!", ephemeral=True, silent=True)
 
     if count < 1:
         await interaction.followup.send(content="I cannot generate less than 1 image!", ephemeral=True, silent=True)
@@ -214,6 +213,7 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
         return
 
     files = []
+    files2 = []
 
     guidance_scale_list = []
     for generation in range(count):
@@ -259,7 +259,10 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
                     outputtext += f"NSFW detected on image {i + 1} of {count}\n"
 
                 image.save(iter_filename, 'PNG')
-                files.append(discord.File(fp=iter_filename, description=f"Prompt: {prompt}\nNegative prompt: {negative_prompt}"))
+                if not (len(files) >= 10):
+                    files.append(discord.File(fp=iter_filename, description=f"Prompt: {prompt}\nNegative prompt: {negative_prompt}"))
+                else:
+                    files2.append(iter_filename)
         except RuntimeError as e:
             if 'out of CUDA out of memory' in str(e):
                 outputtext += f"Out of memory: try another prompt"
@@ -282,7 +285,12 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
         await interaction.followup.send(content='Created GIF from images', file=gif_file, silent=True)
 
     for file in files:
+        print(f"Deleting: imagestoGIF/{file.filename}")
         os.remove(f"imagestoGIF/{file.filename}")
+
+    for filename in files2:
+        print(f"Deleting: {filename}")
+        os.remove(f"{filename}")
 
 from diffusers import StableDiffusionImg2ImgPipeline
 
