@@ -19,16 +19,20 @@ The current primary model used for image generation.
 In the following image I used the `/openjourneywithincrease` command.
 Specifically the command was:  
 `/openjourneywithincrease` `prompt: (((simplistic))), concept art, stylized, splash art, symmetrical, illumination lighting, neural network design,single logo, centered, symbol, shaded, dark shadows, dynamic lighting, watercolor paint, rough paper texture, dark background, darkmode` `increase_guidance_by: 1` `guidance_start: 10` `count: 10` `steps: 50` `creategif: true`
+
 ![Orange Logo](https://github.com/Warlour/AIBot/blob/assets/output1.png?raw=true)
 
 The program then creates a gif from the generated images and sends in a separates message:
+
 ![Orange Logo GIF](https://github.com/Warlour/AIBot/blob/assets/output1.gif?raw=true)
 
 #### Example 2
 `/openjourneywithincrease` `prompt: cute isometric cyberpunk bedroom, cutaway box, futuristic, highly detailed, made with blender --v 4` `increase_guidance_by: 1` `guidance_start: 7` `count: 10` `seed: 17168` `creategif: true`
+
 ![Isometric cyberpunk bedroom](https://github.com/Warlour/AIBot/blob/assets/output2.png?raw=true)
 
 The program then creates a gif from the generated images and sends in a separates message:
+
 ![Isometric cyberpunk bedroom GIF](https://github.com/Warlour/AIBot/blob/assets/output2.gif?raw=true)
 
 ## Installation
