@@ -589,6 +589,8 @@ async def self(interaction: discord.Interaction, prompt:str):
 
         print(responses['choices'][0]['message']['content'])
 
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
 @tree.command(name = "pygmalion", description="Conversational bot set state with character", guild = guildObject)
 async def self(interaction: discord.Interaction, state:bool, character_name:str = 'Discord user', character_description:str = 'The average discord user, likes to be edgy, cringe and sometimes very offensive.'):
     await interaction.response.defer()
@@ -607,8 +609,15 @@ async def self(interaction: discord.Interaction, state:bool, character_name:str 
         status = f"{pygmalionCharacterName} is now **active** with the persona: {pygmalionCharacter}"
     print(status)
     await interaction.followup.send(status, silent=True)
+    # await asyncio.sleep(5)
 
-from transformers import AutoTokenizer, GPTJForCausalLM
+    if pygmalionState and pygmalionCharacterName and pygmalionCharacter:
+        global pygmaTokenizer, pygmaModel
+        model_id = r"models/pygmalion-350m"
+        pygmaTokenizer = AutoTokenizer.from_pretrained(model_id)
+        print('Set tokenizer')
+        pygmaModel = AutoModelForCausalLM.from_pretrained(model_id).to(torch.device("cuda:0"))
+        print('Set model (ready)')
 
 @client.event
 async def on_message(ctx: discord.Message):
@@ -621,32 +630,30 @@ async def on_message(ctx: discord.Message):
     if not pygmalionState:
         await ctx.channel.send(content="Pygmalion is not active!", delete_after=3, silent=True)
         return
-    
+
     if not pygmalionCharacter:
         await ctx.channel.send(content="No character to play!", delete_after=3, silent=True)
         return
 
     try:
-        model_id = r"models/pygmalion-6b"
-        tokenizer = AutoTokenizer.from_pretrained(model_id)
-        print('Set tokenizer')
-        model = GPTJForCausalLM.from_pretrained(model_id).to(torch.device("cuda:0"))
-        print('Set model')
-
         messages_list = []
         async for message in ctx.channel.history(limit=200):
             messages_list.append(f"{message.author.name}: {message.content}\n")
 
+        input_message = messages_list.pop()
         messages = "".join(reversed(messages_list))
 
         input_text = f"{pygmalionCharacterName}'s Persona: {pygmalionCharacter}\n<START>\n"
         input_text += messages
+        input_text += f"{input_message}\n"
         input_text += f"{pygmalionCharacterName}: "
+        print(input_text)
 
-        input_ids = tokenizer.encode(input_text, return_tensors='pt')
+        input_ids = pygmaTokenizer.encode(input_text, return_tensors='pt').to('cuda')
+        print("test")
         
-        output = model.generate(input_ids, max_length=1000, do_sample=True, temperature=0.7).to(torch.device("cuda:0"))
-        output_text = tokenizer.decode(output[0], skip_special_tokens=True)
+        output = pygmaModel.generate(input_ids, max_length=1000, do_sample=True, temperature=0.7).to(torch.device("cuda:0"))
+        output_text = pygmaTokenizer.decode(output[0], skip_special_tokens=True)
 
         await ctx.channel.send(output_text, silent=True)
         print(output_text)
