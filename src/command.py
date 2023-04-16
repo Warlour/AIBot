@@ -97,45 +97,46 @@ async def self(interaction: discord.Interaction, prompt:str, negative_prompt:str
 
     files = []
 
-    try:
-        model_id = models_path+"/openjourney"
-        pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16).to(device)
-        generator = torch.Generator(device)
+    for i in range(count):
+        print(f"Generating image {i+1} of {count}")
+        try:
+            model_id = models_path+"/openjourney"
+            pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16).to(device)
+            generator = torch.Generator(device)
 
-        generator = generator.manual_seed(seed) if seed else generator.manual_seed(generator.seed())
-        
-        outputtext = f"**Text prompt:** {prompt}\n"
-        outputtext += f"**Negative text prompt:** {negative_prompt}\n"
-        outputtext += f"**Count:** {count}\n"
-        outputtext += f"**Seed:**  {generator.initial_seed()}\n"
-        outputtext += f"**Guidance scale:** {guidance_scale}\n"
-        outputtext += f"**Steps:** {steps}\n"
-        outputtext += f"**Size:** {width}x{height}\n"
+            generator = generator.manual_seed(seed+i) if seed else generator.manual_seed(generator.seed()+i)
+            
+            outputtext = f"**Text prompt:** {prompt}\n"
+            outputtext += f"**Negative text prompt:** {negative_prompt}\n"
+            outputtext += f"**Count:** {count}\n"
+            outputtext += f"**Seed:**  {generator.initial_seed()}\n"
+            outputtext += f"**Guidance scale:** {guidance_scale}\n"
+            outputtext += f"**Steps:** {steps}\n"
+            outputtext += f"**Size:** {width}x{height}\n"
 
-        filename = f"{generator.initial_seed()}_{guidance_scale}-{steps}.png"
+            filename = f"{generator.initial_seed()}_{guidance_scale}-{steps}.png"
 
-        result = pipe(
-            prompt=prompt, 
-            negative_prompt=negative_prompt, 
-            guidance_scale=guidance_scale,
-            num_images_per_prompt=count, 
-            num_inference_steps=steps,
-            width=width,
-            height=height,
-            generator=generator
-        )
-        
-        for i, image in enumerate(result.images):
-            # If NSFW Detected
-            if result.nsfw_content_detected[i] == True:
-                outputtext += f"NSFW detected on image {i + 1} of {count}\n"
+            result = pipe(
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                guidance_scale=guidance_scale,
+                num_inference_steps=steps,
+                width=width,
+                height=height,
+                generator=generator
+            )
+            
+            for im, image in enumerate(result.images):
+                # If NSFW Detected
+                if result.nsfw_content_detected[im] == True:
+                    outputtext += f"NSFW detected on image {im + 1} of {count}\n"
 
-            name = f"{i+1}_{filename}"
-            image.save(name, 'PNG')
-            files.append(discord.File(fp=name, description=f"Prompt: {prompt}\nNegative prompt: {negative_prompt}"))
-    except RuntimeError as e:
-        if 'out of CUDA out of memory' in str(e):
-            outputtext += f"Out of memory: try another prompt"
+                name = f"{im+1}_{filename}"
+                image.save(name, 'PNG')
+                files.append(discord.File(fp=name, description=f"Prompt: {prompt}\nNegative prompt: {negative_prompt}"))
+        except RuntimeError as e:
+            if 'out of CUDA out of memory' in str(e):
+                outputtext += f"Out of memory: try another prompt"
 
     await interaction.followup.send(content=outputtext, files=files, silent=True)
 
