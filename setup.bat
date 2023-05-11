@@ -1,1 +1,1 @@
-pip install -r dependencies.txt
+pip install -U -r dependencies.txt

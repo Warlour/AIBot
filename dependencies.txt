@@ -5,7 +5,7 @@ pillow
 torch
 diffusers
 transformers
-whisper
+openai-whisper
 validators
 pytube
 clip
