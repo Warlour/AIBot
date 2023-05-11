@@ -1,0 +1,12 @@
+discord
+requests
+openai
+pillow
+torch
+diffusers
+transformers
+whisper
+validators
+pytube
+clip
+numpy
