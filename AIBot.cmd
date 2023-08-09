@@ -1,1 +1,1 @@
-python3.9 src/command.py
+py -3.9 src/command.py
