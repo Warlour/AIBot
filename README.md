@@ -9,11 +9,6 @@
         * [Example 2](#example-2)
 6. [Installation](#installation)
     * [Troubleshoot](#troubleshoot)
-        * [Wrong Python version](#wrong-python-version)
-        * [Missing libraries](#missing-libraries)
-        * [python3.9 is not recognized as the name of a cmdlet, function...](#python39-is-not-recognized-as-the-name-of-a-cmdlet-function)
-            * [Still not working?](#still-not-working)
-
 
 # Introduction
 This program is a Discord bot that utilizes machine learning models to generate images and transcribe audio files for users. The program is written in Python and uses libraries such as Discord.py, PIL, and PyTorch.
@@ -64,20 +59,14 @@ The program then creates a gif from the generated images and sends in a separate
 4. Go back to the AIBot folder and run the cmd file: AIBot.cmd - or run the command python3.9 src/command.py from the AIBot folder (cannot be run from the src folder)
 
 ## Troubleshoot:  
-### Wrong Python version:  
-Install Python 3.9 from Microsoft Store  
+### No suitable Python runtime found (Make sure to use py -3.9):  
+1. Install Python 3.9 from Microsoft Store, (if you're on Linux I'm sure you know how to do this)
 
 ### Missing libraries:  
-Run the following: `python3.9 -m pip install discord os requests openai torch diffusers transformers whisper validators pytube clip numpy`
+Run the following: `py -3.9 -m pip install discord os requests openai torch diffusers transformers whisper validators pytube clip numpy`
 
-### python3.9 is not recognized as the name of a cmdlet, function...:  
-1. Navigate to your Python installation (mine was `%userprofile%\AppData\Local\Programs\Python\Python39`)  
-2. Change `python.exe` to `python3.9.exe`  
-	
-#### Still not working?:  
-1. Copy `%userprofile%\AppData\Local\Programs\Python\Python39` (or your personal path to the Python folder)  
-2. Press `Win+R`, and type the following: `rundll32.exe sysdm.cpl,EditEnvironmentVariables`  
-    2a. While you're here, you can click New and insert  
-        Variable name as `DISCORD_TOKEN_BOT1`  
-        Variable value as `Your Bot Token` and then click OK.   
-3. Double-click or click Edit on Path, click New, and paste your Python folder in.  
+### Make sure you set Discord Token from your <ins>own</ins> bot:  
+1. Press `Win+R`, and type the following: `rundll32.exe sysdm.cpl,EditEnvironmentVariables` (this opens Environment Variables)  
+2. Click New and insert  
+	Variable name as `DISCORD_TOKEN_BOT1`  
+        Variable value as your bot token and then click OK.
